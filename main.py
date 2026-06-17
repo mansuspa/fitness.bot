@@ -1,6 +1,8 @@
 import os
 import asyncio
 import aiohttp
+import json
+from datetime import datetime
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
@@ -12,40 +14,121 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-SYSTEM_PROMPT = "Ты профессиональный фитнес тренер. Отвечай кратко, чётко и по делу."
+DB_FILE = "users.json"
+
+# --- база ---
+def load_users():
+    if not os.path.exists(DB_FILE):
+        return {}
+    with open(DB_FILE, "r") as f:
+        return json.load(f)
+
+def save_users(data):
+    with open(DB_FILE, "w") as f:
+        json.dump(data, f)
+
+users = load_users()
+
+SYSTEM_PROMPT = """
+Ты TOP level AI фитнес коуч SaaS продукта.
+
+Ты создаёшь:
+- 7-дневные планы тренировок
+- персональное питание
+- адаптацию под цель
+- чёткие структурированные ответы
+
+Формат:
+1. Цель
+2. План тренировок
+3. Питание
+4. Рекомендации
+
+Будь максимально конкретным.
+"""
 
 # --- меню ---
 menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="💪 Тренировка"), KeyboardButton(text="🔥 Похудение")],
-        [KeyboardButton(text="⚖️ Масса"), KeyboardButton(text="🥗 Питание")]
+        [KeyboardButton(text="🔥 Похудение"), KeyboardButton(text="⚖️ Масса")],
+        [KeyboardButton(text="💪 Тренировка"), KeyboardButton(text="🥗 Питание")],
+        [KeyboardButton(text="💎 VIP статус")]
     ],
     resize_keyboard=True
 )
 
+FREE_LIMIT = 5
+
 # --- старт ---
 @dp.message(CommandStart())
 async def start(message: Message):
+    user_id = str(message.from_user.id)
+
+    if user_id not in users:
+        users[user_id] = {
+            "name": message.from_user.first_name,
+            "goal": None,
+            "vip": False,
+            "requests": 0
+        }
+        save_users(users)
+
     await message.answer(
-        "💪 Привет mans! Я твой mans фитнес тренер.\nВыбери режим или напиши вопрос.",
+        f"💪 Привет {users[user_id]['name']}! TOP FITNESS AI готов.",
         reply_markup=menu
     )
 
-# --- основной AI ---
+# --- логика ---
 @dp.message()
 async def chat(message: Message):
+    user_id = str(message.from_user.id)
     text = message.text
 
-    # режимы кнопок
-    if text == "💪 Тренировка":
-        text = "Составь тренировку на сегодня"
-    elif text == "🔥 Похудение":
-        text = "Дай план похудения"
-    elif text == "⚖️ Масса":
-        text = "Дай план набора массы"
-    elif text == "🥗 Питание":
-        text = "Составь план питания на день"
+    if user_id not in users:
+        users[user_id] = {
+            "name": "user",
+            "goal": None,
+            "vip": False,
+            "requests": 0
+        }
 
+    user = users[user_id]
+
+    # --- VIP ---
+    if text == "💎 VIP статус":
+        status = "VIP 💎" if user["vip"] else "FREE 🆓"
+        await message.answer(
+            f"👤 Статус: {status}\n"
+            f"Запросов: {user['requests']}/{FREE_LIMIT if not user['vip'] else '∞'}"
+        )
+        return
+
+    # --- лимит ---
+    if not user["vip"]:
+        if user["requests"] >= FREE_LIMIT:
+            await message.answer("🚫 Лимит исчерпан. Перейди на VIP 💎")
+            return
+        user["requests"] += 1
+
+    # --- режимы ---
+    if text == "🔥 Похудение":
+        user["goal"] = "похудение"
+        text = "Сделай 7-дневный план похудения"
+
+    elif text == "⚖️ Масса":
+        user["goal"] = "набор массы"
+        text = "Сделай 7-дневный план набора массы"
+
+    elif text == "💪 Тренировка":
+        text = "Сделай тренировку на сегодня"
+
+    elif text == "🥗 Питание":
+        text = "Сделай питание на день"
+
+    users[user_id] = user
+    save_users(users)
+
+    # --- AI ---
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -70,9 +153,8 @@ async def chat(message: Message):
     except Exception as e:
         await message.answer(f"Ошибка: {e}")
 
-# --- запуск ---
 async def main():
-    print("💪 FITNESS AI BOT STARTED")
+    print("🚀 TOP FITNESS BUSINESS BOT STARTED")
     await dp.start_polling(bot, skip_updates=True)
 
 if __name__ == "__main__":
