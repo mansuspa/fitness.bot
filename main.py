@@ -1,23 +1,18 @@
 import os
-import asyncio
-import aiohttp
 import json
-
+import asyncio
 from aiogram import Bot, Dispatcher
-from aiogram.filters import CommandStart
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.filters import CommandStart
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 DB_FILE = "users.json"
 
-# -------------------
-# DB
-# -------------------
+# ---------------- DB ----------------
 
 def load_db():
     if not os.path.exists(DB_FILE):
@@ -31,79 +26,56 @@ def save_db(data):
 
 users = load_db()
 
-# -------------------
-# PLANS CORE
-# -------------------
+# ---------------- PREMIUM ----------------
 
-PLANS = {
-    "похудение": {
-        "training": "Бег 25 мин + пресс + планка + присед",
-        "food": "яйца, курица, рис, овощи, рыба"
-    },
-    "масса": {
-        "training": "жим лёжа, тяга, присед, бицепс, трицепс",
-        "food": "яйца, овсянка, рис, мясо, макароны"
+def is_premium(user):
+    return user.get("premium", False)
+
+# ---------------- CALCULATIONS ----------------
+
+def calc_calories(w, h, a, goal):
+    bmr = 10*w + 6.25*h - 5*a + 5
+
+    if goal == "похудение":
+        return int(bmr * 1.2 - 450)
+    if goal == "масса":
+        return int(bmr * 1.2 + 450)
+    return int(bmr * 1.2)
+
+def calc_bju(cal):
+    return (
+        int(cal * 0.30 / 4),
+        int(cal * 0.25 / 9),
+        int(cal * 0.45 / 4)
+    )
+
+# ---------------- TRAINING ENGINE ----------------
+
+def get_training(goal, premium):
+    base = {
+        "похудение": "🏃 Кардио 30 мин\n🏋️ Присед 3x15\n🔥 Планка 60 сек",
+        "масса": "🏋️ Жим 4x8\n🏋️ Присед 4x10\n💪 Тяга 4x10"
     }
-}
 
-SYSTEM = """
-Ты фитнес AI коуч уровня приложения.
+    pro = {
+        "похудение": base["похудение"] + "\n🔥 HIIT + интервалы + ускорения",
+        "масса": base["масса"] + "\n💪 PUSH/PULL/LEGS + прогрессия веса"
+    }
 
-Ты даёшь:
-- простые понятные советы
-- улучшаешь планы
-- адаптируешь под пользователя
+    return pro if premium else base
 
-Формат:
-1. Суть
-2. Улучшение
-3. Совет
-"""
-
-# -------------------
-# MENU
-# -------------------
+# ---------------- MENU ----------------
 
 menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔥 Похудение"), KeyboardButton(text="⚖️ Масса")],
-        [KeyboardButton(text="📊 Профиль"), KeyboardButton(text="💪 Тренировка")],
-        [KeyboardButton(text="🥗 Питание")]
+        [KeyboardButton(text="💪 Тренировки"), KeyboardButton(text="📊 Профиль")],
+        [KeyboardButton(text="💎 Premium"), KeyboardButton(text="📝 Анкета")]
     ],
     resize_keyboard=True
 )
 
-# -------------------
-# AI
-# -------------------
-
-async def ai(text):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": text}
-                ]
-            }
-        ) as r:
-            data = await r.json()
-
-    # 🔥 если ошибка от API — покажет её полностью
-    if "choices" not in data:
-        return f"❌ API ERROR:\n{data}"
-
-    return data["choices"][0]["message"]["content"]
-
-# -------------------
-# START
-# -------------------
+# ---------------- START ----------------
 
 @dp.message(CommandStart())
 async def start(message: Message):
@@ -113,93 +85,138 @@ async def start(message: Message):
         users[uid] = {
             "name": message.from_user.first_name,
             "goal": None,
-            "history": []
+            "weight": None,
+            "height": None,
+            "age": None,
+            "weight_history": [],
+            "premium": False,
+            "step": None
         }
         save_db(users)
 
     await message.answer(
-        f"💪 Привет {users[uid]['name']}! Это FITNESS APP v1",
+        f"💪 Привет {users[uid]['name']}!\n"
+        f"Mans Fitness V8 🔥",
         reply_markup=menu
     )
 
-# -------------------
-# LOGIC
-# -------------------
+# ---------------- MAIN LOGIC ----------------
 
 @dp.message()
-async def chat(message: Message):
+async def handler(message: Message):
     uid = str(message.from_user.id)
     text = message.text
 
     if uid not in users:
-        users[uid] = {"name": "user", "goal": None, "history": []}
+        return
 
     user = users[uid]
 
-    # -------------------
-    # PROFILE
-    # -------------------
+    # -------- PREMIUM --------
+    if text == "💎 Premium":
+        if user["premium"]:
+            await message.answer("💎 Premium уже активен 🔥")
+        else:
+            await message.answer(
+                "💎 PREMIUM\n\n"
+                "🔥 PRO тренировки\n"
+                "🥗 расширенное питание\n"
+                "📊 аналитика тела\n\n"
+                "💰 Цена: 5$/мес\n"
+                "👉 Напиши BUY"
+            )
+        return
+
+    if text == "BUY":
+        user["premium"] = True
+        save_db(users)
+        await message.answer("💎 Premium активирован!")
+        return
+
+    # -------- GOALS --------
+    if text == "🔥 Похудение":
+        user["goal"] = "похудение"
+
+    if text == "⚖️ Масса":
+        user["goal"] = "масса"
+
+    # -------- ANKETA FLOW --------
+    if text == "📝 Анкета":
+        user["step"] = "weight"
+        await message.answer("⚖️ Введи вес (кг):")
+        save_db(users)
+        return
+
+    if user.get("step") == "weight":
+        user["weight"] = int(text)
+        user["step"] = "height"
+        await message.answer("📏 Введи рост (см):")
+        save_db(users)
+        return
+
+    if user.get("step") == "height":
+        user["height"] = int(text)
+        user["step"] = "age"
+        await message.answer("🎂 Введи возраст:")
+        save_db(users)
+        return
+
+    if user.get("step") == "age":
+        user["age"] = int(text)
+        user["step"] = None
+
+        # сохраняем вес в историю
+        user["weight_history"].append(user["weight"])
+
+        save_db(users)
+        await message.answer("✅ Анкета заполнена!")
+        return
+
+    # -------- PROFILE --------
     if text == "📊 Профиль":
+        if None in [user["weight"], user["height"], user["age"]]:
+            await message.answer("❗ Сначала заполни анкету")
+            return
+
+        cal = calc_calories(
+            user["weight"],
+            user["height"],
+            user["age"],
+            user["goal"]
+        )
+
+        b, f, c = calc_bju(cal)
+
         await message.answer(
-            f"👤 Имя: {user['name']}\n"
-            f"🎯 Цель: {user['goal']}\n"
-            f"📈 Запросов: {len(user['history'])}"
+            f"👤 {user['name']}\n"
+            f"🎯 {user['goal']}\n"
+            f"💎 Premium: {user['premium']}\n\n"
+            f"⚖️ Вес: {user['weight']} кг\n"
+            f"📏 Рост: {user['height']} см\n"
+            f"🎂 Возраст: {user['age']}\n\n"
+            f"🔥 Калории: {cal}\n"
+            f"🥩 Б:{b} Ж:{f} У:{c}\n\n"
+            f"📈 История веса: {user['weight_history']}"
         )
         return
 
-    # -------------------
-    # MODES
-    # -------------------
-
-    if text == "🔥 Похудение":
-        user["goal"] = "похудение"
-        plan = PLANS["похудение"]
-
-    elif text == "⚖️ Масса":
-        user["goal"] = "масса"
-        plan = PLANS["масса"]
-
-    elif text == "💪 Тренировка":
-        plan = {"training": PLANS["масса"]["training"], "food": None}
-
-    elif text == "🥗 Питание":
-        plan = {"training": None, "food": PLANS["похудение"]["food"]}
-
-    else:
-        # обычный AI чат
-        answer = await ai(text)
-        await message.answer(answer)
+    # -------- TRAINING --------
+    if text == "💪 Тренировки":
+        training = get_training(user.get("goal"), user.get("premium", False))
+        await message.answer(training)
         return
 
-    # -------------------
-    # BUILD RESPONSE
-    # -------------------
+    # fallback
+    await message.answer("Выбери меню 👇", reply_markup=menu)
 
-    result = ""
-
-    if plan.get("training"):
-        result += "💪 ТРЕНИРОВКА:\n" + plan["training"]
-
-    if plan.get("food"):
-        result += "\n\n🥗 ПИТАНИЕ:\n" + plan["food"]
-
-    # AI улучшает
-    comment = await ai("Улучши этот фитнес план:\n" + result)
-
-    await message.answer(result)
-    await message.answer("🧠 AI тренер:\n" + comment)
-
-    # history
-    user["history"].append(text)
+    user["history"] = user.get("history", []) + [text]
     users[uid] = user
     save_db(users)
 
-# -------------------
-# RUN
-# -------------------
+# ---------------- RUN ----------------
 
 async def main():
-    print("🚀 FITNESS APP v1 STARTED")
+    print("🚀 MANS FITNESS V8 STARTED")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
