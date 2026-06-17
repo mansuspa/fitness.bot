@@ -2,7 +2,6 @@ import os
 import asyncio
 import aiohttp
 import json
-from datetime import datetime
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
@@ -16,146 +15,188 @@ dp = Dispatcher()
 
 DB_FILE = "users.json"
 
-# --- база ---
-def load_users():
+# -------------------
+# DB
+# -------------------
+
+def load_db():
     if not os.path.exists(DB_FILE):
         return {}
     with open(DB_FILE, "r") as f:
         return json.load(f)
 
-def save_users(data):
+def save_db(data):
     with open(DB_FILE, "w") as f:
         json.dump(data, f)
 
-users = load_users()
+users = load_db()
 
-SYSTEM_PROMPT = """
-Ты TOP level AI фитнес коуч SaaS продукта.
+# -------------------
+# PLANS CORE
+# -------------------
 
-Ты создаёшь:
-- 7-дневные планы тренировок
-- персональное питание
-- адаптацию под цель
-- чёткие структурированные ответы
+PLANS = {
+    "похудение": {
+        "training": "Бег 25 мин + пресс + планка + присед",
+        "food": "яйца, курица, рис, овощи, рыба"
+    },
+    "масса": {
+        "training": "жим лёжа, тяга, присед, бицепс, трицепс",
+        "food": "яйца, овсянка, рис, мясо, макароны"
+    }
+}
+
+SYSTEM = """
+Ты фитнес AI коуч уровня приложения.
+
+Ты даёшь:
+- простые понятные советы
+- улучшаешь планы
+- адаптируешь под пользователя
 
 Формат:
-1. Цель
-2. План тренировок
-3. Питание
-4. Рекомендации
-
-Будь максимально конкретным.
+1. Суть
+2. Улучшение
+3. Совет
 """
 
-# --- меню ---
+# -------------------
+# MENU
+# -------------------
+
 menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔥 Похудение"), KeyboardButton(text="⚖️ Масса")],
-        [KeyboardButton(text="💪 Тренировка"), KeyboardButton(text="🥗 Питание")],
-        [KeyboardButton(text="💎 VIP статус")]
+        [KeyboardButton(text="📊 Профиль"), KeyboardButton(text="💪 Тренировка")],
+        [KeyboardButton(text="🥗 Питание")]
     ],
     resize_keyboard=True
 )
 
-FREE_LIMIT = 5
+# -------------------
+# AI
+# -------------------
 
-# --- старт ---
+async def ai(text):
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": SYSTEM},
+                    {"role": "user", "content": text}
+                ]
+            }
+        ) as r:
+            data = await r.json()
+
+    return data["choices"][0]["message"]["content"]
+
+# -------------------
+# START
+# -------------------
+
 @dp.message(CommandStart())
 async def start(message: Message):
-    user_id = str(message.from_user.id)
+    uid = str(message.from_user.id)
 
-    if user_id not in users:
-        users[user_id] = {
+    if uid not in users:
+        users[uid] = {
             "name": message.from_user.first_name,
             "goal": None,
-            "vip": False,
-            "requests": 0
+            "history": []
         }
-        save_users(users)
+        save_db(users)
 
     await message.answer(
-        f"💪 Привет {users[user_id]['name']}! TOP FITNESS AI готов.",
+        f"💪 Привет {users[uid]['name']}! Это FITNESS APP v1",
         reply_markup=menu
     )
 
-# --- логика ---
+# -------------------
+# LOGIC
+# -------------------
+
 @dp.message()
 async def chat(message: Message):
-    user_id = str(message.from_user.id)
+    uid = str(message.from_user.id)
     text = message.text
 
-    if user_id not in users:
-        users[user_id] = {
-            "name": "user",
-            "goal": None,
-            "vip": False,
-            "requests": 0
-        }
+    if uid not in users:
+        users[uid] = {"name": "user", "goal": None, "history": []}
 
-    user = users[user_id]
+    user = users[uid]
 
-    # --- VIP ---
-    if text == "💎 VIP статус":
-        status = "VIP 💎" if user["vip"] else "FREE 🆓"
+    # -------------------
+    # PROFILE
+    # -------------------
+    if text == "📊 Профиль":
         await message.answer(
-            f"👤 Статус: {status}\n"
-            f"Запросов: {user['requests']}/{FREE_LIMIT if not user['vip'] else '∞'}"
+            f"👤 Имя: {user['name']}\n"
+            f"🎯 Цель: {user['goal']}\n"
+            f"📈 Запросов: {len(user['history'])}"
         )
         return
 
-    # --- лимит ---
-    if not user["vip"]:
-        if user["requests"] >= FREE_LIMIT:
-            await message.answer("🚫 Лимит исчерпан. Перейди на VIP 💎")
-            return
-        user["requests"] += 1
+    # -------------------
+    # MODES
+    # -------------------
 
-    # --- режимы ---
     if text == "🔥 Похудение":
         user["goal"] = "похудение"
-        text = "Сделай 7-дневный план похудения"
+        plan = PLANS["похудение"]
 
     elif text == "⚖️ Масса":
-        user["goal"] = "набор массы"
-        text = "Сделай 7-дневный план набора массы"
+        user["goal"] = "масса"
+        plan = PLANS["масса"]
 
     elif text == "💪 Тренировка":
-        text = "Сделай тренировку на сегодня"
+        plan = {"training": PLANS["масса"]["training"], "food": None}
 
     elif text == "🥗 Питание":
-        text = "Сделай питание на день"
+        plan = {"training": None, "food": PLANS["похудение"]["food"]}
 
-    users[user_id] = user
-    save_users(users)
-
-    # --- AI ---
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": text}
-                    ]
-                }
-            ) as resp:
-                data = await resp.json()
-
-        answer = data["choices"][0]["message"]["content"]
+    else:
+        # обычный AI чат
+        answer = await ai(text)
         await message.answer(answer)
+        return
 
-    except Exception as e:
-        await message.answer(f"Ошибка: {e}")
+    # -------------------
+    # BUILD RESPONSE
+    # -------------------
+
+    result = ""
+
+    if plan.get("training"):
+        result += "💪 ТРЕНИРОВКА:\n" + plan["training"]
+
+    if plan.get("food"):
+        result += "\n\n🥗 ПИТАНИЕ:\n" + plan["food"]
+
+    # AI улучшает
+    comment = await ai("Улучши этот фитнес план:\n" + result)
+
+    await message.answer(result)
+    await message.answer("🧠 AI тренер:\n" + comment)
+
+    # history
+    user["history"].append(text)
+    users[uid] = user
+    save_db(users)
+
+# -------------------
+# RUN
+# -------------------
 
 async def main():
-    print("🚀 TOP FITNESS BUSINESS BOT STARTED")
-    await dp.start_polling(bot, skip_updates=True)
+    print("🚀 FITNESS APP v1 STARTED")
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
