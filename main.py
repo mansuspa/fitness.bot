@@ -95,6 +95,10 @@ async def ai(text):
         ) as r:
             data = await r.json()
 
+    # 🔥 если ошибка от API — покажет её полностью
+    if "choices" not in data:
+        return f"❌ API ERROR:\n{data}"
+
     return data["choices"][0]["message"]["content"]
 
 # -------------------
