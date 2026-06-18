@@ -1,65 +1,73 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+import logging
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Main Menu
-main_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🏠 МЕНЮ")],
-        [KeyboardButton(text="🔥 ПОХУДЕНИЕ"), KeyboardButton(text="⚖️ МАССА")],
-        [KeyboardButton(text="🏋️ ТРЕНИРОВКИ"), KeyboardButton(text="🥗 ПИТАНИЕ")],
-        [KeyboardButton(text="📊 СТАТИСТИКА"), KeyboardButton(text="💎 PREMIUM")]
-    ],
-    resize_keyboard=True
-)
+logger = logging.getLogger(__name__)
 
-# Goal Selection
-goal_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🔥 ПОХУДЕНИЕ")],
-        [KeyboardButton(text="⚖️ НАБОР МАССЫ")],
-        [KeyboardButton(text="↩️ НАЗАД")]
-    ],
-    resize_keyboard=True
-)
+def get_main_keyboard():
+    """Главное меню"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🍽️ Питание", callback_data="menu_food"),
+            InlineKeyboardButton(text="💪 Тренировки", callback_data="menu_workout"),
+        ],
+        [
+            InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
+            InlineKeyboardButton(text="⚙️ Настройки", callback_data="menu_settings"),
+        ],
+    ])
+    return keyboard
 
-# Training Menu
-training_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="📅 Программа на неделю")],
-        [KeyboardButton(text="🏋️ Упражнение дня")],
-        [KeyboardButton(text="✅ Отметить тренировку")],
-        [KeyboardButton(text="↩️ НАЗАД")]
-    ],
-    resize_keyboard=True
-)
+def get_food_keyboard():
+    """Клавиатура для модуля питания"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📊 Рассчитать калории", callback_data="food_calories"),
+            InlineKeyboardButton(text="📝 Мой рацион", callback_data="food_meals"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="menu_back"),
+        ],
+    ])
+    return keyboard
 
-# Nutrition Menu
-nutrition_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🍽️ План питания")],
-        [KeyboardButton(text="⚖️ Расчет калорий")],
-        [KeyboardButton(text="🥗 Рецепты")],
-        [KeyboardButton(text="↩️ НАЗАД")]
-    ],
-    resize_keyboard=True
-)
+def get_workout_keyboard():
+    """Клавиатура для модуля тренировок"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🏋️ Верх тела", callback_data="workout_upper"),
+            InlineKeyboardButton(text="🏋️ Низ тела", callback_data="workout_lower"),
+        ],
+        [
+            InlineKeyboardButton(text="💪 Кардио", callback_data="workout_cardio"),
+            InlineKeyboardButton(text="🧘 Растяжка", callback_data="workout_stretch"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="menu_back"),
+        ],
+    ])
+    return keyboard
 
-# Premium Menu (Inline)
-premium_menu = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="💎 Активировать Premium", callback_data="buy_premium")],
-        [InlineKeyboardButton(text="ℹ️ Что входит?", callback_data="premium_info")],
-        [InlineKeyboardButton(text="❌ Закрыть", callback_data="close")]
-    ]
-)
+def get_profile_keyboard():
+    """Клавиатура для профиля"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✏️ Редактировать", callback_data="profile_edit"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="menu_back"),
+        ],
+    ])
+    return keyboard
 
-# Stats Input
-stats_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="⚖️ Вес")],
-        [KeyboardButton(text="📏 Рост")],
-        [KeyboardButton(text="🎂 Возраст")],
-        [KeyboardButton(text="✅ Готово")],
-        [KeyboardButton(text="↩️ НАЗАД")]
-    ],
-    resize_keyboard=True
-)
+def get_settings_keyboard():
+    """Клавиатура для настроек"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🔔 Уведомления", callback_data="settings_notifications"),
+            InlineKeyboardButton(text="🌙 Тёмная тема", callback_data="settings_theme"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="menu_back"),
+        ],
+    ])
+    return keyboard
