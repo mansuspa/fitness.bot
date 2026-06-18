@@ -5,6 +5,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from database import Database
 from nutrition import Nutrition
 from workout import Workout
+from ai_trainer import fitness_ai
 
 router = Router()
 
@@ -144,6 +145,32 @@ async def smart(message: Message):
         f"🎯 цель: {goal}\n"
         f"📌 {advice[goal]}"
     )
+
+
+
+# ---------------- 🤖 AI TRAINER ----------------
+
+@router.message(F.text.startswith("🤖"))
+
+async def ai_trainer(message: Message):
+
+    user = db.get_user(message.from_user.id)
+
+    if not user:
+
+        return await message.answer("нажми /start")
+
+    goal = user.get("goal", "maintain")
+
+    text = message.text.replace("🤖", "").strip()
+
+    if not text:
+
+        return await message.answer("Напиши вопрос после 🤖")
+
+    answer = fitness_ai(goal, text)
+
+    await message.answer(answer)
 
 # ---------------- FALLBACK ----------------
 @router.message()
