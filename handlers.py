@@ -155,6 +155,7 @@ async def smart(message: Message):
 async def ai_trainer(message: Message):
 
 def register_all_handlers(dp):
+    
     dp.include_router(router)
 
     user = db.get_user(message.from_user.id)
