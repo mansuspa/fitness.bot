@@ -1,6 +1,11 @@
 import os
 from openai import OpenAI
 
+
+print("OPENAI_API_KEY =", repr(os.getenv("OPENAI_API_KEY")))
+print("OPENAI_PROJECT_ID =", repr(os.getenv("OPENAI_PROJECT_ID")))
+print("OPENAI_ORG_ID =", repr(os.getenv("OPENAI_ORG_ID")))
+
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
