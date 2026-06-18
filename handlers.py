@@ -14,14 +14,14 @@ db = Database()
 nutrition = Nutrition()
 workout = Workout()
 
-# ---------------- UI ----------------
+# ---------------- MENU ----------------
 
 menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔥 Похудение"), KeyboardButton(text="💪 Масса")],
         [KeyboardButton(text="⚖️ Поддержание")],
-        [KeyboardButton(text="📊 Моя форма"), KeyboardButton(text="🏋️ Тренировки")],
-        [KeyboardButton(text="📈 Прогресс")]
+        [KeyboardButton(text="🍽 Питание"), KeyboardButton(text="🏋️ Тренировки")],
+        [KeyboardButton(text="📊 Моя форма"), KeyboardButton(text="📈 Прогресс")]
     ],
     resize_keyboard=True
 )
@@ -36,30 +36,28 @@ async def start(message: Message):
     db.add_user(user_id, username)
 
     await message.answer(
-        f"💪 Привет, {username}!\n\n"
-        f"Я твой AI фитнес-тренер.\n"
-        f"Выбери цель ниже 👇",
+        f"💪 Привет, {username}!\n\nЯ твой фитнес-тренер.\nВыбери цель 👇",
         reply_markup=menu
     )
 
-# ---------------- ЦЕЛИ ----------------
+# ---------------- GOALS ----------------
 
 @router.message(F.text == "🔥 Похудение")
 async def loss(message: Message):
     db.update_user(message.from_user.id, goal="loss")
-    await message.answer("🔥 Цель: ПОХУДЕНИЕ установлена")
+    await message.answer("🔥 Цель установлена: ПОХУДЕНИЕ")
 
 @router.message(F.text == "💪 Масса")
 async def gain(message: Message):
     db.update_user(message.from_user.id, goal="gain")
-    await message.answer("💪 Цель: НАБОР МАССЫ установлен")
+    await message.answer("💪 Цель установлена: МАССА")
 
 @router.message(F.text == "⚖️ Поддержание")
 async def maintain(message: Message):
     db.update_user(message.from_user.id, goal="maintain")
-    await message.answer("⚖️ Цель: ПОДДЕРЖАНИЕ установлено")
+    await message.answer("⚖️ Цель установлена: ПОДДЕРЖАНИЕ")
 
-# ---------------- ФОРМА ----------------
+# ---------------- CALORIES ----------------
 
 @router.message(F.text == "📊 Моя форма")
 async def form(message: Message):
@@ -86,12 +84,11 @@ async def form(message: Message):
         f"⚡ TDEE: {data['tdee']}"
     )
 
-# ---------------- ТРЕНИРОВКИ ----------------
+# ---------------- TRAINING ----------------
 
 @router.message(F.text == "🏋️ Тренировки")
 async def training(message: Message):
     user = db.get_user(message.from_user.id)
-
     goal = user.get("goal", "maintain")
 
     plan = workout.get_workout_plan(goal)
@@ -101,7 +98,7 @@ async def training(message: Message):
     for day, desc in plan["days"].items():
         text += f"{day}: {desc}\n"
 
-    text += "\n💪 Упражнения:\n"
+    text += "\n💪 УПРАЖНЕНИЯ:\n"
 
     for group, exs in plan["exercises"].items():
         text += f"\n{group}:\n"
@@ -110,54 +107,67 @@ async def training(message: Message):
 
     await message.answer(text)
 
-# ---------------- ПРОГРЕСС ----------------
+# ---------------- FOOD ----------------
+
+@router.message(F.text == "🍽 Питание")
+async def food(message: Message):
+    user = db.get_user(message.from_user.id)
+    goal = user.get("goal", "maintain")
+
+    guide = nutrition.food_guide()
+    data = guide[goal]
+
+    text = f"{data['title']}\n\n🍽 ЕДА:\n"
+
+    for item in data["eat"]:
+        text += f"• {item}\n"
+
+    if "avoid" in data:
+        text += "\n❌ ИЗБЕГАТЬ:\n"
+        for item in data["avoid"]:
+            text += f"• {item}\n"
+
+    if "add_tip" in data:
+        text += f"\n💡 {data['add_tip']}"
+
+    if "tip" in data:
+        text += f"\n💡 {data['tip']}"
+
+    await message.answer(text)
+
+# ---------------- PROGRESS ----------------
 
 @router.message(F.text == "📈 Прогресс")
 async def progress(message: Message):
     user = db.get_user(message.from_user.id)
 
-    if not user:
-        await message.answer("Сначала /start")
-        return
-
     history = user.get("weight_history", [])
 
     if len(history) < 2:
-        await message.answer("📊 Пока мало данных для прогресса")
+        await message.answer("📊 Пока нет данных")
         return
 
-    start = history[0]
-    current = history[-1]
-    diff = current - start
-
-    trend = "📉 похудение" if diff < 0 else "📈 набор"
+    diff = history[-1] - history[0]
 
     await message.answer(
         f"📈 ПРОГРЕСС\n\n"
-        f"Старт: {start} кг\n"
-        f"Сейчас: {current} кг\n"
-        f"Изменение: {diff:+.1f} кг\n"
-        f"Тренд: {trend}"
+        f"Старт: {history[0]} кг\n"
+        f"Сейчас: {history[-1]} кг\n"
+        f"Изменение: {diff:+.1f} кг"
     )
 
-# ---------------- ВЕС ----------------
+# ---------------- WEIGHT INPUT ----------------
 
 @router.message(F.text.regexp(r"^\d{2,3}$"))
-async def weight_input(message: Message):
-    weight = int(message.text)
-
-    db.add_weight(message.from_user.id, weight)
-
-    await message.answer(
-        f"⚖️ Вес сохранён: {weight} кг\n\n"
-        f"📊 Напиши 'Прогресс' чтобы увидеть динамику"
-    )
+async def weight(message: Message):
+    db.add_weight(message.from_user.id, int(message.text))
+    await message.answer("⚖️ Вес сохранён")
 
 # ---------------- FALLBACK ----------------
 
 @router.message()
 async def fallback(message: Message):
-    await message.answer("Выбери действие из меню 👇", reply_markup=menu)
+    await message.answer("Выбери кнопку 👇", reply_markup=menu)
 
 
 def register_all_handlers(dp):
