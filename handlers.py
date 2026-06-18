@@ -73,20 +73,31 @@ async def training(message: Message):
 @router.message(F.text == "🍽 Питание")
 async def food(message: Message):
     user = db.get_user(message.from_user.id)
-    guide = nut.food(user["goal"])
-    data = guide[user["goal"]]
+
+    if not user:
+        return await message.answer("Нажми /start")
+
+    goal = user.get("goal", "maintain")
+
+    guide = nut.food(goal)
+
+    data = guide.get(goal)
+
+    if not data:
+        data = guide["maintain"]
 
     text = f"{data['title']}\n\n🍽 ЕДА:\n"
 
-    for i in data["eat"]:
-        text += f"• {i}\n"
+    for item in data.get("eat", []):
+        text += f"• {item}\n"
 
     if "avoid" in data:
-        text += "\n❌ нельзя:\n"
-        for i in data["avoid"]:
-            text += f"• {i}\n"
+        text += "\n❌ ИЗБЕГАТЬ:\n"
+        for item in data["avoid"]:
+            text += f"• {item}\n"
 
-    text += f"\n💡 {data.get('tip','')}"
+    if "tip" in data:
+        text += f"\n💡 {data['tip']}"
 
     await message.answer(text)
 
