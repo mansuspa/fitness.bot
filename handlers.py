@@ -14,11 +14,14 @@ db = Database()
 nutrition = Nutrition()
 workout = Workout()
 
+# ---------------- UI ----------------
+
 menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔥 Похудение"), KeyboardButton(text="💪 Масса")],
         [KeyboardButton(text="⚖️ Поддержание")],
         [KeyboardButton(text="📊 Моя форма"), KeyboardButton(text="🏋️ Тренировки")],
+        [KeyboardButton(text="📈 Прогресс")]
     ],
     resize_keyboard=True
 )
@@ -33,7 +36,9 @@ async def start(message: Message):
     db.add_user(user_id, username)
 
     await message.answer(
-        f"💪 Привет, {username}!\n\nВыбери цель:",
+        f"💪 Привет, {username}!\n\n"
+        f"Я твой AI фитнес-тренер.\n"
+        f"Выбери цель ниже 👇",
         reply_markup=menu
     )
 
@@ -47,12 +52,12 @@ async def loss(message: Message):
 @router.message(F.text == "💪 Масса")
 async def gain(message: Message):
     db.update_user(message.from_user.id, goal="gain")
-    await message.answer("💪 Цель: МАССА установлена")
+    await message.answer("💪 Цель: НАБОР МАССЫ установлен")
 
 @router.message(F.text == "⚖️ Поддержание")
 async def maintain(message: Message):
     db.update_user(message.from_user.id, goal="maintain")
-    await message.answer("⚖️ Цель: ПОДДЕРЖАНИЕ установлена")
+    await message.answer("⚖️ Цель: ПОДДЕРЖАНИЕ установлено")
 
 # ---------------- ФОРМА ----------------
 
@@ -65,11 +70,11 @@ async def form(message: Message):
         return
 
     data = nutrition.calculate_calories(
-        user.get("weight", 70),
-        user.get("height", 175),
-        user.get("age", 25),
-        user.get("gender", "male"),
-        user.get("goal", "maintain")
+        user["weight"],
+        user["height"],
+        user["age"],
+        user["gender"],
+        user["goal"]
     )
 
     await message.answer(
@@ -87,7 +92,7 @@ async def form(message: Message):
 async def training(message: Message):
     user = db.get_user(message.from_user.id)
 
-    goal = user.get("goal", "maintain") if user else "maintain"
+    goal = user.get("goal", "maintain")
 
     plan = workout.get_workout_plan(goal)
 
@@ -104,6 +109,49 @@ async def training(message: Message):
             text += f"• {ex}\n"
 
     await message.answer(text)
+
+# ---------------- ПРОГРЕСС ----------------
+
+@router.message(F.text == "📈 Прогресс")
+async def progress(message: Message):
+    user = db.get_user(message.from_user.id)
+
+    if not user:
+        await message.answer("Сначала /start")
+        return
+
+    history = user.get("weight_history", [])
+
+    if len(history) < 2:
+        await message.answer("📊 Пока мало данных для прогресса")
+        return
+
+    start = history[0]
+    current = history[-1]
+    diff = current - start
+
+    trend = "📉 похудение" if diff < 0 else "📈 набор"
+
+    await message.answer(
+        f"📈 ПРОГРЕСС\n\n"
+        f"Старт: {start} кг\n"
+        f"Сейчас: {current} кг\n"
+        f"Изменение: {diff:+.1f} кг\n"
+        f"Тренд: {trend}"
+    )
+
+# ---------------- ВЕС ----------------
+
+@router.message(F.text.regexp(r"^\d{2,3}$"))
+async def weight_input(message: Message):
+    weight = int(message.text)
+
+    db.add_weight(message.from_user.id, weight)
+
+    await message.answer(
+        f"⚖️ Вес сохранён: {weight} кг\n\n"
+        f"📊 Напиши 'Прогресс' чтобы увидеть динамику"
+    )
 
 # ---------------- FALLBACK ----------------
 
