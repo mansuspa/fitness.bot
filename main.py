@@ -3,17 +3,18 @@ import json
 import asyncio
 import logging
 
-logging.basicConfig(level=logging.INFO)
-
-@dp.errors()
-async def error_handler(update, exception):
-    print("❌ ERROR:", exception)
-    return True
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import CommandStart
 
-# ---------------- CONFIG ----------------
+# ---------------- LOGGING ----------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+# ---------------- BOT ----------------
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
@@ -24,220 +25,175 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# ---------------- GLOBAL ERROR HANDLER ----------------
+
 @dp.errors()
-
 async def error_handler(update, exception):
-
-    print("❌ ERROR:", exception)
-
+    logging.error(f"GLOBAL ERROR: {exception}")
     return True
 
-DB_FILE = "users.json"
+# ---------------- DB SAFE ----------------
 
-# ---------------- DB ----------------
+DB_FILE = "users.json"
 
 def load_db():
     if not os.path.exists(DB_FILE):
         return {}
+
     try:
         with open(DB_FILE, "r") as f:
             return json.load(f)
-    except:
+    except Exception as e:
+        logging.error(f"DB LOAD ERROR: {e}")
         return {}
 
 def save_db(data):
-    with open(DB_FILE, "w") as f:
-        json.dump(data, f)
+    try:
+        with open(DB_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        logging.error(f"DB SAVE ERROR: {e}")
 
 users = load_db()
 
-# ---------------- MENU (APP STYLE) ----------------
+# ---------------- SAFE USER ----------------
 
-menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🏠 СТАРТ")],
-        [KeyboardButton(text="🔥 ПОХУДЕНИЕ"), KeyboardButton(text="⚖️ МАССА")],
-        [KeyboardButton(text="🏋️ ТРЕНИРОВКИ"), KeyboardButton(text="🥗 ПИТАНИЕ")],
-        [KeyboardButton(text="📊 ПРОФИЛЬ"), KeyboardButton(text="💎 PREMIUM")],
-        [KeyboardButton(text="📝 АНКЕТА")]
-    ],
-    resize_keyboard=True
-)
-
-# ---------------- TRAINING ----------------
-
-TRAININGS = {
-    "похудение": {
-        "home": "🏃 Дом: прыжки + планка + присед",
-        "gym": "🔥 Зал: дорожка + эллипс + пресс",
-        "cardio": "🚴 Кардио: бег 30-40 мин"
-    },
-    "масса": {
-        "home": "💪 Отжимания + присед + брусья",
-        "gym": "🏋️ Жим + тяга + присед + бицепс",
-        "cardio": "⚡ Лёгкое кардио 15 мин"
-    }
-}
-
-# ---------------- FOOD WITH IMAGES ----------------
-
-FOOD = {
-    "похудение": [
-        ("🥗 Овощи", "https://images.unsplash.com/photo-1556911220-e15b29be8c8f"),
-        ("🐟 Рыба", "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2"),
-        ("🍎 Фрукты", "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce")
-    ],
-    "масса": [
-        ("🍗 Курица", "https://images.unsplash.com/photo-1604908177223-8d7c6c5a3f63"),
-        ("🍚 Рис", "https://images.unsplash.com/photo-1600628422019-6d5a2a5f8c6d"),
-        ("🥚 Яйца", "https://images.unsplash.com/photo-1587049352851-8d4e89133924")
-    ]
-}
-
-# ---------------- START ----------------
-
-@dp.message(CommandStart())
-async def start(message: Message):
-
-    uid = str(message.from_user.id)
-
+def get_user(uid, name):
     if uid not in users:
         users[uid] = {
-            "name": message.from_user.first_name,
+            "name": name,
             "goal": None,
             "premium": False,
             "step": None
         }
         save_db(users)
 
-    await message.answer(
-        f"🔥 FITNESS V14 APP\nПривет {users[uid]['name']} 💪",
-        reply_markup=menu
-    )
+    return users[uid]
+
+# ---------------- MENU ----------------
+
+menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="🏠 HOME")],
+        [KeyboardButton(text="🔥 FAT LOSS"), KeyboardButton(text="⚖️ MASS")],
+        [KeyboardButton(text="🏋️ WORKOUT"), KeyboardButton(text="🥗 FOOD")],
+        [KeyboardButton(text="📊 PROFILE"), KeyboardButton(text="💎 PREMIUM")]
+    ],
+    resize_keyboard=True
+)
+
+# ---------------- START ----------------
+
+@dp.message(CommandStart())
+async def start(message: Message):
+
+    try:
+        uid = str(message.from_user.id)
+        user = get_user(uid, message.from_user.first_name)
+
+        await message.answer(
+            f"🚀 SAAS FITNESS BOT V2\n"
+            f"Привет {user['name']} 💪",
+            reply_markup=menu
+        )
+
+    except Exception as e:
+        logging.error(f"START ERROR: {e}")
 
 # ---------------- ROUTER ----------------
 
 @dp.message()
 async def router(message: Message):
 
-    uid = str(message.from_user.id)
-    text = message.text
+    try:
+        uid = str(message.from_user.id)
+        text = message.text or ""
 
-    if uid not in users:
-        return
+        user = get_user(uid, message.from_user.first_name)
 
-    user = users[uid]
-
-    # ---------------- START ----------------
-    if text == "🏠 СТАРТ":
-        await message.answer("🏠 Главное меню 🔥", reply_markup=menu)
-        return
-
-    # ---------------- GOALS ----------------
-    if text == "🔥 ПОХУДЕНИЕ":
-        user["goal"] = "похудение"
-        save_db(users)
-        await message.answer("🎯 ЦЕЛЬ: ПОХУДЕНИЕ")
-        return
-
-    if text == "⚖️ МАССА":
-        user["goal"] = "масса"
-        save_db(users)
-        await message.answer("🎯 ЦЕЛЬ: МАССА")
-        return
-
-    # ---------------- TRAINING ----------------
-    if text == "🏋️ ТРЕНИРОВКИ":
-
-        if not user.get("goal"):
-            await message.answer("❗ Сначала выбери цель")
+        # ---------------- HOME ----------------
+        if text == "🏠 HOME":
+            await message.answer("🏠 Menu", reply_markup=menu)
             return
 
-        t = TRAININGS[user["goal"]]
-
-        await message.answer(
-            "🏋️ ТРЕНИРОВКИ:\n\n"
-            f"🏠 Дом:\n{t['home']}\n\n"
-            f"🏋️ Зал:\n{t['gym']}\n\n"
-            f"🚴 Кардио:\n{t['cardio']}"
-        )
-        return
-
-    # ---------------- FOOD ----------------
-    if text == "🥗 ПИТАНИЕ":
-
-        if not user.get("goal"):
-            await message.answer("❗ Сначала выбери цель")
+        # ---------------- GOALS ----------------
+        if text == "🔥 FAT LOSS":
+            user["goal"] = "fat_loss"
+            save_db(users)
+            await message.answer("🎯 FAT LOSS selected")
             return
 
-        items = FOOD[user["goal"]]
+        if text == "⚖️ MASS":
+            user["goal"] = "mass"
+            save_db(users)
+            await message.answer("🎯 MASS selected")
+            return
 
-        msg = "🥗 ПИТАНИЕ:\n\n"
+        # ---------------- WORKOUT ----------------
+        if text == "🏋️ WORKOUT":
 
-        for name, img in items:
-            msg += f"{name}\n{img}\n\n"
+            if not user.get("goal"):
+                await message.answer("❗ Choose goal first")
+                return
 
-        await message.answer(msg)
-        return
+            if user["goal"] == "fat_loss":
+                plan = "🏃 Cardio 30 min\n🔥 Squats\n🧱 Plank"
+            else:
+                plan = "🏋️ Bench press\n🏋️ Squats\n💪 Deadlift"
 
-    # ---------------- PROFILE ----------------
-    if text == "📊 ПРОФИЛЬ":
-        await message.answer(
-            f"👤 {user['name']}\n"
-            f"🎯 {user.get('goal')}\n"
-            f"💎 Premium: {user.get('premium', False)}"
-        )
-        return
+            if user.get("premium", False):
+                plan += "\n\n💎 PREMIUM:\nHIIT + advanced split"
 
-    # ---------------- PREMIUM ----------------
-    if text == "💎 PREMIUM":
-        if user.get("premium"):
-            await message.answer("💎 Premium активен 🔥")
-        else:
-            await message.answer("💎 Premium: BUY")
-        return
+            await message.answer("💪 WORKOUT:\n\n" + plan)
+            return
 
-    if text == "BUY":
-        user["premium"] = True
-        save_db(users)
-        await message.answer("💎 Premium активирован!")
-        return
+        # ---------------- FOOD ----------------
+        if text == "🥗 FOOD":
 
-    # ---------------- ANKETA ----------------
-    if text == "📝 АНКЕТА":
-        user["step"] = "weight"
-        save_db(users)
-        await message.answer("⚖️ Введи вес")
-        return
+            if user.get("goal") == "mass":
+                food = "🍗 Chicken\n🍚 Rice\n🥚 Eggs"
+            else:
+                food = "🥗 Vegetables\n🐟 Fish\n🍎 Fruits"
 
-    if user.get("step") == "weight":
-        user["weight"] = text
-        user["step"] = "height"
-        save_db(users)
-        await message.answer("📏 Введи рост")
-        return
+            await message.answer("🥗 FOOD:\n\n" + food)
+            return
 
-    if user.get("step") == "height":
-        user["height"] = text
-        user["step"] = "age"
-        save_db(users)
-        await message.answer("🎂 Введи возраст")
-        return
+        # ---------------- PROFILE ----------------
+        if text == "📊 PROFILE":
 
-    if user.get("step") == "age":
-        user["age"] = text
-        user["step"] = None
-        save_db(users)
-        await message.answer("✅ АНКЕТА ГОТОВА 🔥")
-        return
+            await message.answer(
+                f"👤 {user.get('name')}\n"
+                f"🎯 {user.get('goal')}\n"
+                f"💎 Premium: {user.get('premium', False)}"
+            )
+            return
 
-    # ---------------- FALLBACK ----------------
-    await message.answer("👇 Используй меню", reply_markup=menu)
+        # ---------------- PREMIUM ----------------
+        if text == "💎 PREMIUM":
 
-# ---------------- RUN ----------------
+            if user.get("premium"):
+                await message.answer("💎 Already active 🔥")
+            else:
+                await message.answer("💎 Type BUY to activate")
+            return
+
+        if text == "BUY":
+            user["premium"] = True
+            save_db(users)
+            await message.answer("💎 Premium ACTIVATED 🚀")
+            return
+
+        # ---------------- FALLBACK ----------------
+        await message.answer("👇 Use menu", reply_markup=menu)
+
+    except Exception as e:
+        logging.error(f"ROUTER ERROR: {e}")
+        await message.answer("⚠️ Error, try again")
+
+# ---------------- MAIN ----------------
 
 async def main():
-    print("🚀 FITNESS V14 APP STARTED")
+    logging.info("🚀 SAAS FITNESS BOT V2 STARTED")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
