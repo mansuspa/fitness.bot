@@ -1,4 +1,5 @@
 import logging
+from aiogram import Dispatcher
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
@@ -108,7 +109,7 @@ async def cmd_unknown(message: Message):
         "Я не понимаю эту команду. Напиши /help для справки."
     )
 
-def register_all_handlers(dp: Dispatcher):
+def register_all_handlers(dp):
     """Регистрация всех обработчиков"""
     dp.include_router(router)
     logger.info("Все обработчики зарегистрированы")
