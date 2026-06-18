@@ -42,7 +42,7 @@ class Nutrition:
         except Exception as e:
             logger.error(f"Ошибка сохранения рационов: {e}")
     
-    def calculate_calories(self, weight: float, height: float, age: int, gender: str):
+    def calculate_calories(self, weight: float, height: float, age: int, gender: str, goal: str):
         """Расчёт калорий по формуле Миффлина-Сан Жеора"""
         if gender.lower() == 'male':
             bmr = 10 * weight + 6.25 * height - 5 * age + 5
@@ -55,70 +55,127 @@ class Nutrition:
         # Расчёт суточной нормы
         daily_calories = int(bmr * activity_multiplier)
         
+        # Корректировка под цель
+        if goal == 'gain':
+            daily_calories += 300  # Для набора
+        elif goal == 'loss':
+            daily_calories -= 500  # Для похудения
+        
         return {
             "bmr": int(bmr),
             "daily_calories": daily_calories,
-            "activity_multiplier": activity_multiplier
+            "activity_multiplier": activity_multiplier,
+            "goal": goal
         }
     
-    def create_meal_plan(self, calories: int, goal: str):
-        """Создание плана питания"""
-        # Распределение калорий
-        if goal == "gain":
-            # Для набора массы - больше углеводов
-            meal_plan = {
-                "breakfast": {
-                    "calories": int(calories * 0.30),
-                    "description": "Завтрак: белки, сложные углеводы, клетчатка"
+    def get_nutrition_plan(self, goal: str):
+        """Получение плана питания для цели"""
+        if goal == 'gain':
+            return {
+                "title": "💪 План питания для НАБОРА мышечной массы",
+                "description": "Увеличение калорийности на 300 ккал для набора массы",
+                "macros": {
+                    "protein": "1.6-2.0 г/кг",
+                    "carbs": "4-6 г/кг",
+                    "fats": "1-1.2 г/кг"
                 },
-                "lunch": {
-                    "calories": int(calories * 0.35),
-                    "description": "Обед: белки, овощи, сложные углеводы"
+                "meals": {
+                    "breakfast": [
+                        "Овсянка с молоком и орехами",
+                        "Яйца (2-3 шт.)",
+                        "Творог",
+                        "Банан"
+                    ],
+                    "lunch": [
+                        "Куриное филе (200г)",
+                        "Рис (150г)",
+                        "Овощной салат",
+                        "Оливковое масло"
+                    ],
+                    "dinner": [
+                        "Рыба (200г)",
+                        "Картофель (150г)",
+                        "Овощи",
+                        "Сметана"
+                    ],
+                    "snacks": [
+                        "Греческий йогурт",
+                        "Орехи (30г)",
+                        "Фрукты",
+                        "Протеиновый коктейль"
+                    ]
+                }
+            }
+        elif goal == 'loss':
+            return {
+                "title": "🔥 План питания для ПОХУДЕНИЯ",
+                "description": "Уменьшение калорийности на 500 ккал для похудения",
+                "macros": {
+                    "protein": "1.8-2.2 г/кг",
+                    "carbs": "2-3 г/кг",
+                    "fats": "0.8-1 г/кг"
                 },
-                "dinner": {
-                    "calories": int(calories * 0.25),
-                    "description": "Ужин: белки, овощи, углеводы"
-                },
-                "snacks": {
-                    "calories": int(calories * 0.10),
-                    "description": "Перекусы: орехи, творог, фрукты"
+                "meals": {
+                    "breakfast": [
+                        "Гречка с яйцом",
+                        "Творог",
+                        "Яблоко",
+                        "Кофе/чай без сахара"
+                    ],
+                    "lunch": [
+                        "Индейка (150г)",
+                        "Гречка (100г)",
+                        "Овощной салат",
+                        "Оливковое масло (1 ст.л.)"
+                    ],
+                    "dinner": [
+                        "Кальмар (150г)",
+                        "Капуста (200г)",
+                        "Творог (100г)",
+                        "Овощи"
+                    ],
+                    "snacks": [
+                        "Ягоды",
+                        "Творог (100г)",
+                        "Орехи (15г)",
+                        "Яйцо (варёное)"
+                    ]
                 }
             }
         else:
-            # Для похудения - меньше углеводов
-            meal_plan = {
-                "breakfast": {
-                    "calories": int(calories * 0.25),
-                    "description": "Завтрак: белки, клетчатка, немного углеводов"
+            return {
+                "title": "⚖️ План питания для ПОДДЕРЖАНИЯ",
+                "description": "Поддержание текущего веса",
+                "macros": {
+                    "protein": "1.6-1.8 г/кг",
+                    "carbs": "3-4 г/кг",
+                    "fats": "0.9-1 г/кг"
                 },
-                "lunch": {
-                    "calories": int(calories * 0.35),
-                    "description": "Обед: белки, овощи, мало углеводов"
-                },
-                "dinner": {
-                    "calories": int(calories * 0.30),
-                    "description": "Ужин: белки, овощи, минимум углеводов"
-                },
-                "snacks": {
-                    "calories": int(calories * 0.10),
-                    "description": "Перекусы: фрукты, белки, зелень"
+                "meals": {
+                    "breakfast": [
+                        "Овсянка",
+                        "Яйца",
+                        "Творог",
+                        "Фрукты"
+                    ],
+                    "lunch": [
+                        "Курица/рыба",
+                        "Гречка/рис",
+                        "Овощи",
+                        "Масло"
+                    ],
+                    "dinner": [
+                        "Белковое блюдо",
+                        "Овощи",
+                        "Кисломолочные продукты"
+                    ],
+                    "snacks": [
+                        "Йогурт",
+                        "Фрукты",
+                        "Орехи"
+                    ]
                 }
             }
-        
-        return meal_plan
-    
-    def get_meal_plan_text(self, calories: int, goal: str):
-        """Получение текста плана питания"""
-        meal_plan = self.create_meal_plan(calories, goal)
-        
-        text = f"🍽️ **План питания для {goal}**\n\n"
-        text += f"**Суточная норма: {calories} ккал**\n\n"
-        
-        for meal_type, meal_data in meal_plan.items():
-            text += f"**{meal_type.title()}:** {meal_data['calories']} ккал\n"
-            text += f"{meal_data['description']}\n\n"
-        
-        return text
     
     def add_meal(self, meal_type: str, meal_dict):
         """Добавление приёма пищи"""
