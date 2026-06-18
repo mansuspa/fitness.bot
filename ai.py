@@ -1,6 +1,9 @@
+import os
 from openai import OpenAI
 
-client = OpenAI(api_key="API_KEY")
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 def fitness_ai(goal, text):
 
