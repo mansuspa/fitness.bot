@@ -1,7 +1,14 @@
 import os
 import json
 import asyncio
+import logging
 
+logging.basicConfig(level=logging.INFO)
+
+@dp.errors()
+async def error_handler(update, exception):
+    print("❌ ERROR:", exception)
+    return True
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import CommandStart
@@ -16,6 +23,14 @@ if not BOT_TOKEN:
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+
+@dp.errors()
+
+async def error_handler(update, exception):
+
+    print("❌ ERROR:", exception)
+
+    return True
 
 DB_FILE = "users.json"
 
