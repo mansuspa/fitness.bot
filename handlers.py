@@ -1,7 +1,7 @@
 import logging
 from aiogram import Router, F
 from aiogram.types import Message
-from aiogram.filters import CommandStart, CommandHelp, Command
+from aiogram.filters import CommandStart, Command
 from database import Database
 from nutrition import Nutrition
 from workout import Workout
@@ -14,7 +14,7 @@ db = Database()
 nutrition = Nutrition()
 workout = Workout()
 
-@router.message(CommandStart())
+@router.message(Command("help"))
 async def cmd_start(message: Message):
     """Обработка команды /start"""
     user_id = message.from_user.id
