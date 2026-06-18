@@ -1,7 +1,8 @@
 import os
 import json
 import asyncio
-from aiogram import Bot, Dispatcher
+
+from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import CommandStart
 
@@ -26,54 +27,32 @@ def save_db(data):
 
 users = load_db()
 
-# ---------------- PREMIUM ----------------
-
-def is_premium(user):
-    return user.get("premium", False)
-
-# ---------------- CALCULATIONS ----------------
-
-def calc_calories(w, h, a, goal):
-    bmr = 10*w + 6.25*h - 5*a + 5
-
-    if goal == "похудение":
-        return int(bmr * 1.2 - 450)
-    if goal == "масса":
-        return int(bmr * 1.2 + 450)
-    return int(bmr * 1.2)
-
-def calc_bju(cal):
-    return (
-        int(cal * 0.30 / 4),
-        int(cal * 0.25 / 9),
-        int(cal * 0.45 / 4)
-    )
-
-# ---------------- TRAINING ENGINE ----------------
-
-def get_training(goal, premium):
-    base = {
-        "похудение": "🏃 Кардио 30 мин\n🏋️ Присед 3x15\n🔥 Планка 60 сек",
-        "масса": "🏋️ Жим 4x8\n🏋️ Присед 4x10\n💪 Тяга 4x10"
-    }
-
-    pro = {
-        "похудение": base["похудение"] + "\n🔥 HIIT + интервалы + ускорения",
-        "масса": base["масса"] + "\n💪 PUSH/PULL/LEGS + прогрессия веса"
-    }
-
-    return pro if premium else base
-
 # ---------------- MENU ----------------
 
 menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔥 Похудение"), KeyboardButton(text="⚖️ Масса")],
-        [KeyboardButton(text="💪 Тренировки"), KeyboardButton(text="📊 Профиль")],
-        [KeyboardButton(text="💎 Premium"), KeyboardButton(text="📝 Анкета")]
+        [KeyboardButton(text="💪 Тренировки"), KeyboardButton(text="🥗 Питание")],
+        [KeyboardButton(text="💎 Premium"), KeyboardButton(text="📊 Профиль")],
+        [KeyboardButton(text="📝 Анкета")]
     ],
     resize_keyboard=True
 )
+
+# ---------------- TRAINING ----------------
+
+def get_training(goal, premium):
+    base = {
+        "похудение": "🏃 Бег 25-30 мин\n🏋️ Присед 3x15\n🔥 Планка 60 сек",
+        "масса": "🏋️ Жим 4x8\n🏋️ Присед 4x10\n💪 Тяга 4x10"
+    }
+
+    pro = {
+        "похудение": base["похудение"] + "\n🔥 HIIT интервалы + ускорения",
+        "масса": base["масса"] + "\n💪 PUSH/PULL/LEGS система + прогрессия"
+    }
+
+    return pro if premium else base
 
 # ---------------- START ----------------
 
@@ -88,43 +67,38 @@ async def start(message: Message):
             "weight": None,
             "height": None,
             "age": None,
-            "weight_history": [],
             "premium": False,
-            "step": None
+            "step": None,
+            "history": []
         }
         save_db(users)
 
     await message.answer(
         f"💪 Привет {users[uid]['name']}!\n"
-        f"Mans Fitness V8 🔥",
+        f"Mans Fitness V9 🔥",
         reply_markup=menu
     )
 
-# ---------------- MAIN LOGIC ----------------
+# ---------------- ROUTER (ВАЖНО) ----------------
 
 @dp.message()
-async def handler(message: Message):
+async def router(message: Message):
     uid = str(message.from_user.id)
     text = message.text
+
+    print("DEBUG:", uid, text)
 
     if uid not in users:
         return
 
     user = users[uid]
 
-    # -------- PREMIUM --------
+    # ---------------- PREMIUM ----------------
     if text == "💎 Premium":
         if user["premium"]:
             await message.answer("💎 Premium уже активен 🔥")
         else:
-            await message.answer(
-                "💎 PREMIUM\n\n"
-                "🔥 PRO тренировки\n"
-                "🥗 расширенное питание\n"
-                "📊 аналитика тела\n\n"
-                "💰 Цена: 5$/мес\n"
-                "👉 Напиши BUY"
-            )
+            await message.answer("💎 Premium: BUY чтобы активировать")
         return
 
     if text == "BUY":
@@ -133,90 +107,83 @@ async def handler(message: Message):
         await message.answer("💎 Premium активирован!")
         return
 
-    # -------- GOALS --------
+    # ---------------- GOALS ----------------
     if text == "🔥 Похудение":
         user["goal"] = "похудение"
+        await message.answer("🎯 Цель: похудение сохранена")
+        return
 
     if text == "⚖️ Масса":
         user["goal"] = "масса"
+        await message.answer("🎯 Цель: масса сохранена")
+        return
 
-    # -------- ANKETA FLOW --------
+    # ---------------- TRAINING (ВАЖНО ФИКС) ----------------
+    if text == "💪 Тренировки":
+        training = get_training(user.get("goal"), user.get("premium", False))
+        result = training.get(user.get("goal", "похудение"))
+
+        await message.answer("💪 ТВОЯ ТРЕНИРОВКА:\n\n" + result)
+        return
+
+    # ---------------- FOOD ----------------
+    if text == "🥗 Питание":
+        await message.answer(
+            "🥗 Питание:\n\n"
+            "🍗 Белок: курица, яйца, рыба\n"
+            "🍚 Углеводы: рис, овсянка\n"
+            "🥑 Жиры: орехи, авокадо\n"
+        )
+        return
+
+    # ---------------- PROFILE ----------------
+    if text == "📊 Профиль":
+        await message.answer(
+            f"👤 {user['name']}\n"
+            f"🎯 {user['goal']}\n"
+            f"💎 Premium: {user['premium']}"
+        )
+        return
+
+    # ---------------- ANKETA ----------------
     if text == "📝 Анкета":
         user["step"] = "weight"
-        await message.answer("⚖️ Введи вес (кг):")
+        await message.answer("⚖️ Введи вес:")
         save_db(users)
         return
 
     if user.get("step") == "weight":
-        user["weight"] = int(text)
+        user["weight"] = text
         user["step"] = "height"
-        await message.answer("📏 Введи рост (см):")
+        await message.answer("📏 Введи рост:")
         save_db(users)
         return
 
     if user.get("step") == "height":
-        user["height"] = int(text)
+        user["height"] = text
         user["step"] = "age"
         await message.answer("🎂 Введи возраст:")
         save_db(users)
         return
 
     if user.get("step") == "age":
-        user["age"] = int(text)
+        user["age"] = text
         user["step"] = None
-
-        # сохраняем вес в историю
-        user["weight_history"].append(user["weight"])
-
         save_db(users)
-        await message.answer("✅ Анкета заполнена!")
+        await message.answer("✅ Анкета готова!")
         return
 
-    # -------- PROFILE --------
-    if text == "📊 Профиль":
-        if None in [user["weight"], user["height"], user["age"]]:
-            await message.answer("❗ Сначала заполни анкету")
-            return
+    # ---------------- DEFAULT ----------------
+    await message.answer("❗ Выбери кнопку из меню 👇", reply_markup=menu)
 
-        cal = calc_calories(
-            user["weight"],
-            user["height"],
-            user["age"],
-            user["goal"]
-        )
-
-        b, f, c = calc_bju(cal)
-
-        await message.answer(
-            f"👤 {user['name']}\n"
-            f"🎯 {user['goal']}\n"
-            f"💎 Premium: {user['premium']}\n\n"
-            f"⚖️ Вес: {user['weight']} кг\n"
-            f"📏 Рост: {user['height']} см\n"
-            f"🎂 Возраст: {user['age']}\n\n"
-            f"🔥 Калории: {cal}\n"
-            f"🥩 Б:{b} Ж:{f} У:{c}\n\n"
-            f"📈 История веса: {user['weight_history']}"
-        )
-        return
-
-    # -------- TRAINING --------
-    if text == "💪 Тренировки":
-        training = get_training(user.get("goal"), user.get("premium", False))
-        await message.answer(training)
-        return
-
-    # fallback
-    await message.answer("Выбери меню 👇", reply_markup=menu)
-
-    user["history"] = user.get("history", []) + [text]
+    user["history"].append(text)
     users[uid] = user
     save_db(users)
 
 # ---------------- RUN ----------------
 
 async def main():
-    print("🚀 MANS FITNESS V8 STARTED")
+    print("🚀 MANS FITNESS V9 STARTED")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
