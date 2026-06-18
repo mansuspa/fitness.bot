@@ -13,6 +13,9 @@ DB_FILE = os.getenv("DB_FILE", "database.json")
 # Настройка питания
 MEALS_FILE = os.getenv("MEALS_FILE", "meals.json")
 
+# Настройка тренировок
+WORKOUTS_FILE = os.getenv("WORKOUTS_FILE", "workouts.json")
+
 # Проверка обязательных переменных
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не задан в переменных окружения")
