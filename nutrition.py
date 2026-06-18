@@ -1,112 +1,97 @@
+import json
 import logging
 
 logger = logging.getLogger(__name__)
 
-
 class Nutrition:
-    """Фитнес питание (стабильная версия)"""
+    """FITNESS AI nutrition module (V7 PRO)"""
 
-    def calculate_calories(self, weight, height, age, gender, goal):
-        # Mifflin-St Jeor formula
-        if gender == "male":
-            bmr = 10 * weight + 6.25 * height - 5 * age + 5
-        else:
-            bmr = 10 * weight + 6.25 * height - 5 * age - 161
-
-        activity = 1.4  # средняя активность
-        tdee = int(bmr * activity)
-
-        # корректировка под цель
-        if goal == "loss":
-            calories = tdee - 400
-        elif goal == "gain":
-            calories = tdee + 300
-        else:
-            calories = tdee
-
-        protein = int(weight * 2)
-        fats = int(weight * 0.9)
-        carbs = int((calories - (protein * 4 + fats * 9)) / 4)
-
-        return {
-            "bmr": int(bmr),
-            "tdee": tdee,
-            "calories": calories,
-            "protein": protein,
-            "fats": fats,
-            "carbs": carbs
-        }
-
-    # ---------------- ПИТАНИЕ ----------------
-
-    def food_guide(self):
-        return {
-            "loss": {
-                "title": "🔥 ПОХУДЕНИЕ (жиросжигание)",
-                "rules": [
-                    "дефицит -300 / -500 ккал",
-                    "высокий белок",
-                    "минимум сахара",
-                    "2-3 литра воды"
-                ],
+    def __init__(self):
+        self.data = {
+            "gain": {
+                "title": "💪 НАБОР МАССЫ",
+                "calories_multiplier": 1.15,
                 "macros": {
                     "protein": "1.8-2.2 г/кг",
-                    "fats": "0.8-1 г/кг",
-                    "carbs": "2-3 г/кг"
+                    "carbs": "4-6 г/кг",
+                    "fats": "1-1.2 г/кг"
                 },
-                "foods": {
-                    "protein": ["курица", "рыба", "яйца", "творог"],
-                    "carbs": ["гречка", "рис", "овсянка"],
-                    "fats": ["орехи", "оливковое масло"],
-                    "extra": ["овощи", "зелень"]
+                "meals": {
+                    "breakfast": ["овсянка", "яйца", "банан"],
+                    "lunch": ["рис", "курица", "овощи"],
+                    "dinner": ["рыба", "картофель", "салат"],
+                    "snacks": ["творог", "орехи", "йогурт"]
                 },
-                "avoid": [
-                    "сахар",
-                    "фастфуд",
-                    "соки",
-                    "выпечка"
+                "tips": [
+                    "Ешь +300–500 ккал в день",
+                    "Принимай белок в каждом приёме пищи",
+                    "Пей 2–3 литра воды"
                 ]
             },
 
-            "gain": {
-                "title": "💪 НАБОР МАССЫ",
-                "rules": [
-                    "профицит +300-500 ккал",
-                    "4-5 приёмов пищи",
-                    "углеводы = энергия",
-                    "белок каждый приём"
-                ],
+            "loss": {
+                "title": "🔥 ПОХУДЕНИЕ",
+                "calories_multiplier": 0.85,
                 "macros": {
-                    "protein": "2-2.2 г/кг",
-                    "fats": "1 г/кг",
-                    "carbs": "4-6 г/кг"
+                    "protein": "2.0-2.4 г/кг",
+                    "carbs": "2-3 г/кг",
+                    "fats": "0.8-1 г/кг"
                 },
-                "foods": {
-                    "protein": ["курица", "говядина", "яйца", "рыба"],
-                    "carbs": ["рис", "паста", "овсянка", "бананы"],
-                    "fats": ["орехи", "масло", "авокадо"],
-                    "extra": ["молоко", "йогурт"]
+                "meals": {
+                    "breakfast": ["яйца", "овсянка", "яблоко"],
+                    "lunch": ["курица", "гречка", "овощи"],
+                    "dinner": ["рыба", "овощи", "творог"],
+                    "snacks": ["йогурт", "ягоды", "орехи (мал.)"]
                 },
-                "tip": "ешь каждые 3-4 часа"
+                "tips": [
+                    "Дефицит -300/-500 ккал",
+                    "Убери сахар и фастфуд",
+                    "Кардио 3–5 раз в неделю"
+                ]
             },
 
             "maintain": {
-                "title": "⚖️ ПОДДЕРЖАНИЕ ФОРМЫ",
-                "rules": [
-                    "калории = норма",
-                    "баланс БЖУ",
-                    "без дефицита"
-                ],
+                "title": "⚖️ ПОДДЕРЖАНИЕ",
+                "calories_multiplier": 1.0,
                 "macros": {
-                    "protein": "1.6-2 г/кг",
-                    "fats": "0.9-1 г/кг",
-                    "carbs": "3-4 г/кг"
+                    "protein": "1.6-2.0 г/кг",
+                    "carbs": "3-4 г/кг",
+                    "fats": "1 г/кг"
                 },
-                "foods": {
-                    "protein": ["мясо", "рыба", "яйца"],
-                    "carbs": ["крупы", "овощи", "фрукты"],
-                    "fats": ["орехи", "масло"],
-                    "extra": ["молочные продукты"]
-                }
+                "meals": {
+                    "breakfast": ["овсянка", "яйца"],
+                    "lunch": ["мясо", "крупа", "овощи"],
+                    "dinner": ["рыба", "овощи"],
+                    "snacks": ["йогурт", "фрукты"]
+                },
+                "tips": [
+                    "Держи баланс калорий",
+                    "3 тренировки в неделю",
+                    "Не переедай"
+                ]
             }
         }
+
+    # ---------------- MAIN ----------------
+    def get_nutrition_plan(self, goal: str):
+        return self.data.get(goal, self.data["maintain"])
+
+    # ---------------- CALORIES ----------------
+    def calculate_calories(self, weight: float, height: float, age: int, goal: str = "maintain"):
+        """Mifflin-St Jeor formula"""
+
+        # базовый обмен
+        bmr = 10 * weight + 6.25 * height - 5 * age + 5
+
+        plan = self.data.get(goal, self.data["maintain"])
+        calories = int(bmr * plan["calories_multiplier"])
+
+        return {
+            "bmr": int(bmr),
+            "calories": calories,
+            "goal": goal
+        }
+
+    # ---------------- SIMPLE FOOD GUIDE ----------------
+    def food(self, goal: str):
+        return self.data
