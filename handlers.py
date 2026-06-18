@@ -29,7 +29,7 @@ async def cmd_start(message: Message):
         f"Выбери команду в меню или напиши /help для справки."
     )
 
-@router.message(CommandHelp())
+@router.message(Command("help"))
 async def cmd_help(message: Message):
     """Обработка команды /help"""
     help_text = """📚 **Команды бота:**
