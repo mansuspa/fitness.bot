@@ -1,71 +1,121 @@
-import logging
-import json
+def food_guide(self):
+    return {
+        "loss": {
+            "title": "🔥 ПОХУДЕНИЕ (жиросжигание)",
+            "rules": [
+                "дефицит калорий -500",
+                "больше белка",
+                "меньше быстрых углеводов",
+                "вода 2-3 литра"
+            ],
+            "macros": {
+                "protein": "1.8-2.2 г/кг",
+                "fats": "0.8-1 г/кг",
+                "carbs": "2-3 г/кг"
+            },
+            "meals": {
+                "breakfast": [
+                    "овсянка + яйца",
+                    "творог 5%",
+                    "кофе без сахара"
+                ],
+                "lunch": [
+                    "курица 150-200г",
+                    "гречка 80-100г",
+                    "овощи"
+                ],
+                "dinner": [
+                    "рыба / индейка",
+                    "овощной салат",
+                    "йогурт"
+                ],
+                "snacks": [
+                    "яблоко",
+                    "творог",
+                    "орехи 20-30г"
+                ]
+            },
+            "avoid": [
+                "сахар",
+                "фастфуд",
+                "газировка",
+                "выпечка",
+                "майонез"
+            ]
+        },
 
-logger = logging.getLogger(__name__)
+        "gain": {
+            "title": "💪 НАБОР МАССЫ (рост мышц)",
+            "rules": [
+                "профицит +300-500 ккал",
+                "много белка",
+                "углеводы - энергия для тренировок",
+                "4-5 приёмов пищи"
+            ],
+            "macros": {
+                "protein": "2-2.2 г/кг",
+                "fats": "1 г/кг",
+                "carbs": "4-6 г/кг"
+            },
+            "meals": {
+                "breakfast": [
+                    "овсянка + банан + мёд",
+                    "яйца 3-4 шт",
+                    "молоко"
+                ],
+                "lunch": [
+                    "рис 150г",
+                    "курица 200г",
+                    "оливковое масло"
+                ],
+                "dinner": [
+                    "паста / картофель",
+                    "говядина / рыба",
+                    "овощи"
+                ],
+                "snacks": [
+                    "бананы",
+                    "орехи",
+                    "протеин",
+                    "йогурт"
+                ]
+            },
+            "tip": "ешь каждые 3-4 часа"
+        },
 
-
-class Nutrition:
-    """Фитнес расчёты уровня V3"""
-
-    def calculate_calories(self, weight, height, age, gender, goal):
-        # Mifflin-St Jeor
-        if gender == "male":
-            bmr = 10 * weight + 6.25 * height - 5 * age + 5
-        else:
-            bmr = 10 * weight + 6.25 * height - 5 * age - 161
-
-        activity = 1.3
-        tdee = int(bmr * activity)
-
-        if goal == "loss":
-            calories = tdee - 500
-        elif goal == "gain":
-            calories = tdee + 300
-        else:
-            calories = tdee
-
-        protein = int(weight * 2)
-        fats = int(weight * 0.8)
-        carbs = int((calories - (protein * 4 + fats * 9)) / 4)
-
-        return {
-            "bmr": int(bmr),
-            "tdee": tdee,
-            "calories": calories,
-            "protein": protein,
-            "fats": fats,
-            "carbs": carbs
+        "maintain": {
+            "title": "⚖️ ПОДДЕРЖАНИЕ ФОРМЫ",
+            "rules": [
+                "калории = норма",
+                "баланс БЖУ",
+                "без крайностей"
+            ],
+            "macros": {
+                "protein": "1.6-2 г/кг",
+                "fats": "0.9-1 г/кг",
+                "carbs": "3-4 г/кг"
+            },
+            "meals": {
+                "breakfast": [
+                    "яйца + каша",
+                    "творог",
+                    "фрукты"
+                ],
+                "lunch": [
+                    "мясо",
+                    "крупа",
+                    "овощи"
+                ],
+                "dinner": [
+                    "рыба",
+                    "салат",
+                    "кисломолочка"
+                ],
+                "snacks": [
+                    "йогурт",
+                    "орехи",
+                    "фрукты"
+                ]
+            }
         }
-
-    def get_nutrition_plan(self, goal):
-        if goal == "loss":
-            return {
-                "title": "🔥 ПОХУДЕНИЕ",
-                "desc": "Дефицит калорий - жиросжигание",
-                "example": {
-                    "breakfast": "яйца + овсянка",
-                    "lunch": "курица + овощи",
-                    "dinner": "рыба + салат"
-                }
-            }
-
-        if goal == "gain":
-            return {
-                "title": "💪 МАССА",
-                "desc": "Профицит калорий - рост мышц",
-                "example": {
-                    "breakfast": "овсянка + банан + яйца",
-                    "lunch": "рис + курица",
-                    "dinner": "паста + мясо"
-                }
-            }
-
-        return {
-            "title": "⚖️ ПОДДЕРЖАНИЕ",
-            "desc": "Баланс формы",
-            "example": {
-                "breakfast": "яйца + каша",
-                "lunch": "мясо + крупа",
-                "dinner": "рыба + овощи"
-            }
-        }
+    }
