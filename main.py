@@ -25,26 +25,17 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ---------------- GLOBAL ERROR HANDLER ----------------
-
-@dp.errors()
-async def error_handler(update, exception):
-    logging.error(f"GLOBAL ERROR: {exception}")
-    return True
-
-# ---------------- DB SAFE ----------------
+# ---------------- DB ----------------
 
 DB_FILE = "users.json"
 
 def load_db():
     if not os.path.exists(DB_FILE):
         return {}
-
     try:
         with open(DB_FILE, "r") as f:
             return json.load(f)
-    except Exception as e:
-        logging.error(f"DB LOAD ERROR: {e}")
+    except:
         return {}
 
 def save_db(data):
@@ -52,35 +43,63 @@ def save_db(data):
         with open(DB_FILE, "w") as f:
             json.dump(data, f)
     except Exception as e:
-        logging.error(f"DB SAVE ERROR: {e}")
+        logging.error(f"DB ERROR: {e}")
 
 users = load_db()
 
-# ---------------- SAFE USER ----------------
+# ---------------- USER ----------------
 
 def get_user(uid, name):
     if uid not in users:
         users[uid] = {
             "name": name,
             "goal": None,
-            "premium": False,
-            "step": None
+            "premium": False
         }
         save_db(users)
-
     return users[uid]
 
 # ---------------- MENU ----------------
 
 menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="🏠 HOME")],
-        [KeyboardButton(text="🔥 FAT LOSS"), KeyboardButton(text="⚖️ MASS")],
-        [KeyboardButton(text="🏋️ WORKOUT"), KeyboardButton(text="🥗 FOOD")],
-        [KeyboardButton(text="📊 PROFILE"), KeyboardButton(text="💎 PREMIUM")]
+        [KeyboardButton(text="🏠 СТАРТ")],
+        [KeyboardButton(text="🔥 ПОХУДЕНИЕ"), KeyboardButton(text="⚖️ МАССА")],
+        [KeyboardButton(text="🏋️ ТРЕНИРОВКИ"), KeyboardButton(text="🥗 ПИТАНИЕ")],
+        [KeyboardButton(text="📊 ПРОФИЛЬ"), KeyboardButton(text="💎 PREMIUM")]
     ],
     resize_keyboard=True
 )
+
+# ---------------- AI TRAINER ----------------
+
+def ai_trainer(user, text):
+
+    goal = user.get("goal")
+
+    if not goal:
+        return "❗ Сначала выбери цель: похудение или масса"
+
+    if goal == "fat_loss":
+        return (
+            "🤖 ТВОЙ ТРЕНЕР\n\n"
+            f"Ты написал: {text}\n\n"
+            "🔥 ПОХУДЕНИЕ:\n"
+            "• Кардио 25–35 минут\n"
+            "• 3–4 силовые тренировки в неделю\n"
+            "• Дефицит калорий\n\n"
+            "💡 Держи пульс 120–140"
+        )
+
+    return (
+        "🤖 ТВОЙ ТРЕНЕР\n\n"
+        f"Ты написал: {text}\n\n"
+        "💪 МАССА:\n"
+        "• База: жим / присед / тяга\n"
+        "• 8–12 повторений\n"
+        "• Профицит калорий\n\n"
+        "📈 Прогрессия веса каждую неделю"
+    )
 
 # ---------------- START ----------------
 
@@ -92,8 +111,8 @@ async def start(message: Message):
         user = get_user(uid, message.from_user.first_name)
 
         await message.answer(
-            f"🚀 SAAS FITNESS BOT V2\n"
-            f"Привет {user['name']} 💪",
+            f"💪 FITNESS AI TRAINER PRO\n"
+            f"Привет {user['name']} 🔥",
             reply_markup=menu
         )
 
@@ -111,58 +130,78 @@ async def router(message: Message):
 
         user = get_user(uid, message.from_user.first_name)
 
-        # ---------------- HOME ----------------
-        if text == "🏠 HOME":
-            await message.answer("🏠 Menu", reply_markup=menu)
+        # ---------------- MENU ----------------
+        if text == "🏠 СТАРТ":
+            await message.answer("🏠 Главное меню", reply_markup=menu)
             return
 
         # ---------------- GOALS ----------------
-        if text == "🔥 FAT LOSS":
+        if text == "🔥 ПОХУДЕНИЕ":
             user["goal"] = "fat_loss"
             save_db(users)
-            await message.answer("🎯 FAT LOSS selected")
+            await message.answer("🎯 Цель: ПОХУДЕНИЕ")
             return
 
-        if text == "⚖️ MASS":
+        if text == "⚖️ МАССА":
             user["goal"] = "mass"
             save_db(users)
-            await message.answer("🎯 MASS selected")
+            await message.answer("🎯 Цель: МАССА")
             return
 
-        # ---------------- WORKOUT ----------------
-        if text == "🏋️ WORKOUT":
+        # ---------------- TRAINING ----------------
+        if text == "🏋️ ТРЕНИРОВКИ":
 
             if not user.get("goal"):
-                await message.answer("❗ Choose goal first")
+                await message.answer("❗ Сначала выбери цель")
                 return
 
             if user["goal"] == "fat_loss":
-                plan = "🏃 Cardio 30 min\n🔥 Squats\n🧱 Plank"
+                plan = (
+                    "🔥 ЖИРОСЖИГАНИЕ\n\n"
+                    "🏃 Кардио — 25–35 мин\n\n"
+                    "🏋️ Приседания — 4 × 15\n"
+                    "⏱ Отдых: 60 сек\n\n"
+                    "🧱 Планка — 3 × 60 сек"
+                )
             else:
-                plan = "🏋️ Bench press\n🏋️ Squats\n💪 Deadlift"
+                plan = (
+                    "💪 МАССА\n\n"
+                    "🏋️ Жим — 4 × 8–10\n"
+                    "⏱ Отдых: 90–120 сек\n\n"
+                    "🏋️ Присед — 4 × 8–10\n"
+                    "💪 Тяга — 4 × 8"
+                )
 
-            if user.get("premium", False):
-                plan += "\n\n💎 PREMIUM:\nHIIT + advanced split"
+            if user.get("premium"):
+                plan += "\n\n💎 PREMIUM: PUSH/PULL/LEGS"
 
-            await message.answer("💪 WORKOUT:\n\n" + plan)
+            await message.answer(plan)
             return
 
         # ---------------- FOOD ----------------
-        if text == "🥗 FOOD":
+        if text == "🥗 ПИТАНИЕ":
 
             if user.get("goal") == "mass":
-                food = "🍗 Chicken\n🍚 Rice\n🥚 Eggs"
+                food = (
+                    "🍗 Курица — 200–250 г\n"
+                    "🍚 Рис — 150–200 г\n"
+                    "🥚 Яйца — 3–5 шт\n"
+                    "🥛 Творог — 150 г"
+                )
             else:
-                food = "🥗 Vegetables\n🐟 Fish\n🍎 Fruits"
+                food = (
+                    "🥗 Овощи — 300–500 г\n"
+                    "🐟 Рыба — 150–200 г\n"
+                    "🍎 Фрукты — 1–2 шт"
+                )
 
-            await message.answer("🥗 FOOD:\n\n" + food)
+            await message.answer("🥗 ПИТАНИЕ:\n\n" + food)
             return
 
         # ---------------- PROFILE ----------------
-        if text == "📊 PROFILE":
-
+        if text == "📊 ПРОФИЛЬ":
             await message.answer(
-                f"👤 {user.get('name')}\n"
+                f"👤 {user['name']}\n"
                 f"🎯 {user.get('goal')}\n"
                 f"💎 Premium: {user.get('premium', False)}"
             )
@@ -172,28 +211,30 @@ async def router(message: Message):
         if text == "💎 PREMIUM":
 
             if user.get("premium"):
-                await message.answer("💎 Already active 🔥")
+                await message.answer("💎 Уже активен")
             else:
-                await message.answer("💎 Type BUY to activate")
+                await message.answer("💎 Напиши BUY")
             return
 
         if text == "BUY":
             user["premium"] = True
             save_db(users)
-            await message.answer("💎 Premium ACTIVATED 🚀")
+            await message.answer("💎 PREMIUM АКТИВИРОВАН 🚀")
             return
 
-        # ---------------- FALLBACK ----------------
-        await message.answer("👇 Use menu", reply_markup=menu)
+        # ---------------- AI TRAINER ----------------
+        answer = ai_trainer(user, text)
+        await message.answer(answer)
+        return
 
     except Exception as e:
         logging.error(f"ROUTER ERROR: {e}")
-        await message.answer("⚠️ Error, try again")
+        await message.answer("⚠️ Ошибка, попробуй снова")
 
-# ---------------- MAIN ----------------
+# ---------------- RUN ----------------
 
 async def main():
-    logging.info("🚀 SAAS FITNESS BOT V2 STARTED")
+    logging.info("🚀 FITNESS AI TRAINER PRO STARTED")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
