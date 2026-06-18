@@ -61,34 +61,69 @@ class Nutrition:
             "activity_multiplier": activity_multiplier
         }
     
-    def create_meal_plan(self, calories: int):
+    def create_meal_plan(self, calories: int, goal: str):
         """Создание плана питания"""
-        # Пример распределения калорий
-        meal_plan = {
-            "breakfast": {
-                "calories": int(calories * 0.25),
-                "description": "Завтрак: белки, сложные углеводы, клетчатка"
-            },
-            "lunch": {
-                "calories": int(calories * 0.35),
-                "description": "Обед: белки, овощи, сложные углеводы"
-            },
-            "dinner": {
-                "calories": int(calories * 0.30),
-                "description": "Ужин: белки, овощи, немного углеводов"
-            },
-            "snacks": {
-                "calories": int(calories * 0.10),
-                "description": "Перекусы: фрукты, орехи, йогурт"
+        # Распределение калорий
+        if goal == "gain":
+            # Для набора массы - больше углеводов
+            meal_plan = {
+                "breakfast": {
+                    "calories": int(calories * 0.30),
+                    "description": "Завтрак: белки, сложные углеводы, клетчатка"
+                },
+                "lunch": {
+                    "calories": int(calories * 0.35),
+                    "description": "Обед: белки, овощи, сложные углеводы"
+                },
+                "dinner": {
+                    "calories": int(calories * 0.25),
+                    "description": "Ужин: белки, овощи, углеводы"
+                },
+                "snacks": {
+                    "calories": int(calories * 0.10),
+                    "description": "Перекусы: орехи, творог, фрукты"
+                }
             }
-        }
+        else:
+            # Для похудения - меньше углеводов
+            meal_plan = {
+                "breakfast": {
+                    "calories": int(calories * 0.25),
+                    "description": "Завтрак: белки, клетчатка, немного углеводов"
+                },
+                "lunch": {
+                    "calories": int(calories * 0.35),
+                    "description": "Обед: белки, овощи, мало углеводов"
+                },
+                "dinner": {
+                    "calories": int(calories * 0.30),
+                    "description": "Ужин: белки, овощи, минимум углеводов"
+                },
+                "snacks": {
+                    "calories": int(calories * 0.10),
+                    "description": "Перекусы: фрукты, белки, зелень"
+                }
+            }
         
         return meal_plan
+    
+    def get_meal_plan_text(self, calories: int, goal: str):
+        """Получение текста плана питания"""
+        meal_plan = self.create_meal_plan(calories, goal)
+        
+        text = f"🍽️ **План питания для {goal}**\n\n"
+        text += f"**Суточная норма: {calories} ккал**\n\n"
+        
+        for meal_type, meal_data in meal_plan.items():
+            text += f"**{meal_type.title()}:** {meal_data['calories']} ккал\n"
+            text += f"{meal_data['description']}\n\n"
+        
+        return text
     
     def add_meal(self, meal_type: str, meal_dict):
         """Добавление приёма пищи"""
         if meal_type in self.meals:
-            self.meals[meal_type].append(meal_data)
+            self.meals[meal_type].append(meal_dict)
             self._save_meals()
             logger.info(f"Добавлен приём пищи: {meal_type}")
     
