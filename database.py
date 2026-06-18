@@ -5,83 +5,69 @@ from config import DB_FILE
 
 logger = logging.getLogger(__name__)
 
-
 class Database:
-    """Database manager for fitness bot"""
+    """Класс для работы с базой данных"""
     
-    @staticmethod
-    def load():
-        """Load users database"""
-        if not __import__("os").path.exists(DB_FILE):
-            return {}
+    def __init__(self):
+        self.db_file = DB_FILE
+        self.users = self._load_users()
+    
+    def _load_users(self):
+        """Загрузка пользователей из файла"""
         try:
-            with open(DB_FILE, "r", encoding="utf-8") as f:
+            with open(self.db_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except Exception as e:
-            logger.error(f"DB LOAD ERROR: {e}")
+        except FileNotFoundError:
+            logger.info("Файл базы данных не найден, создаю новый")
+            return {}
+        except json.JSONDecodeError:
+            logger.error("Ошибка чтения файла базы данных")
             return {}
     
-    @staticmethod
-    def save(data):
-        """Save users database"""
+    def _save_users(self):
+        """Сохранение пользователей в файл"""
         try:
-            with open(DB_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+            with open(self.db_file, 'w', encoding='utf-8') as f:
+                json.dump(self.users, f, ensure_ascii=False, indent=2)
+            logger.info(f"Сохранено {len(self.users)} пользователей")
         except Exception as e:
-            logger.error(f"DB SAVE ERROR: {e}")
+            logger.error(f"Ошибка сохранения базы данных: {e}")
     
-    @staticmethod
-    def get_or_create_user(uid: str, name: str, data: dict) -> dict:
-        """Get or create user profile"""
-        if uid not in data:
-            data[uid] = {
-                "name": name,
-                "goal": None,
-                "premium": False,
-                "created_at": datetime.now().isoformat(),
-                "stats": {
-                    "weight": None,
-                    "height": None,
-                    "age": None,
-                    "gender": None
-                },
-                "workouts": [],
-                "daily_calories": None,
-                "active": True
+    def add_user(self, user_id: int, username: str):
+        """Добавление пользователя"""
+        if user_id not in self.users:
+            self.users[user_id] = {
+                'user_id': user_id,
+                'username': username,
+                'created_at': datetime.now().isoformat(),
+                'weight': None,
+                'height': None,
+                'age': None,
+                'goal': None
             }
-            Database.save(data)
-        return data[uid]
+            self._save_users()
+            logger.info(f"Пользователь {username} добавлен")
     
-    @staticmethod
-    def update_user(uid: str, user_data: dict, data: dict):
-        """Update user profile"""
-        if uid in data:
-            data[uid].update(user_data)
-            Database.save(data)
+    def get_user(self, user_id: int):
+        """Получение информации о пользователе"""
+        return self.users.get(user_id)
     
-    @staticmethod
-    def add_workout(uid: str, workout: dict, data: dict):
-        """Add workout record"""
-        if uid in data:
-            if "workouts" not in data[uid]:
-                data[uid]["workouts"] = []
-            workout["date"] = datetime.now().isoformat()
-            data[uid]["workouts"].append(workout)
-            Database.save(data)
+    def update_user(self, user_id: int, **kwargs):
+        """Обновление информации о пользователе"""
+        if user_id in self.users:
+            for key, value in kwargs.items():
+                if key in self.users[user_id]:
+                    self.users[user_id][key] = value
+            self._save_users()
+            logger.info(f"Информация о пользователе {user_id} обновлена")
     
-    @staticmethod
-    def get_user_stats(uid: str, data: dict) -> dict:
-        """Get user statistics"""
-        if uid not in data:
-            return {}
-        
-        user = data[uid]
-        workouts = user.get("workouts", [])
-        
-        return {
-            "total_workouts": len(workouts),
-            "goal": user.get("goal"),
-            "premium": user.get("premium"),
-            "stats": user.get("stats"),
-            "daily_calories": user.get("daily_calories")
-        }
+    def get_all_users(self):
+        """Получение списка всех пользователей"""
+        return list(self.users.values())
+    
+    def delete_user(self, user_id: int):
+        """Удаление пользователя"""
+        if user_id in self.users:
+            del self.users[user_id]
+            self._save_users()
+            logger.info(f"Пользователь {user_id} удалён")
