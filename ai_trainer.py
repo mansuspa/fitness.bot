@@ -1,35 +1,25 @@
-
-import os
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key="ТВОЙ_API_KEY")
 
+def fitness_ai(goal, text):
+    prompt = f"""
+Ты фитнес тренер.
 
-def fitness_ai(user_goal: str, user_message: str):
-    system_prompt = f"""
-Ты профессиональный фитнес-тренер уровня PRO.
+Цель: {goal}
 
-Задача:
-- помогать в тренировках
-- объяснять технику упражнений
-- составлять питание (в граммах)
-- помогать худеть и набирать массу
+Вопрос: {text}
 
-Всегда:
-- пиши по-русски
-- давай конкретику
-- используй цифры (повторы, подходы, граммы)
-- не пиши воду
-
-ЦЕЛЬ ПОЛЬЗОВАТЕЛЯ: {user_goal}
+Отвечай как тренер:
+- упражнения
+- техника
+- ошибки
+- коротко
 """
 
-    response = client.chat.completions.create(
+    res = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ]
+        messages=[{"role": "user", "content": prompt}]
     )
 
-    return response.choices[0].message.content
+    return res.choices[0].message.content
