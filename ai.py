@@ -1,6 +1,6 @@
 from openai import OpenAI
 
-client = OpenAI(api_key="ТВОЙ_API_KEY")
+client = OpenAI(api_key="API_KEY")
 
 def fitness_ai(goal, text):
 
