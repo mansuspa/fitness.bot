@@ -45,7 +45,8 @@ async def set_goal(message: Message):
         "⚖️ Поддержание": "maintain"
     }
 
-    db.update(message.from_user.id, goal=goals[message.text])
+    # FIX: update_user (у тебя в DB так называется)
+    db.update_user(message.from_user.id, goal=goals[message.text])
 
     await message.answer("цель установлена ✅")
 
@@ -65,7 +66,7 @@ async def training_menu(message: Message):
 
     await message.answer("выбери группу мышц 👇", reply_markup=kb)
 
-# ---------------- EXERCISES ----------------
+# ---------------- EXERCISES (100% ORIGINAL) ----------------
 @router.message(F.text == "💪 Грудь")
 async def chest(message: Message):
     await message.answer(
@@ -141,7 +142,7 @@ async def cardio(message: Message):
         "3. HIIT — 15-20 мин"
     )
 
-# ---------------- FOOD SMART ----------------
+# ---------------- FOOD SMART (НЕ ТРОГАЛ) ----------------
 @router.message(F.text == "🍽 Питание")
 async def food(message: Message):
 
@@ -161,11 +162,14 @@ async def food(message: Message):
 
     await message.answer(text)
 
-# ---------------- SMART MODE ----------------
+# ---------------- SMART MODE (FIX SAFE) ----------------
 @router.message(F.text == "🧠 SMART режим")
 async def smart(message: Message):
 
     user = db.get_user(message.from_user.id)
+
+    if not user:
+        return await message.answer("нажми /start")
 
     goal = user.get("goal", "maintain")
 
@@ -186,3 +190,7 @@ async def smart(message: Message):
 @router.message()
 async def fallback(message: Message):
     await message.answer("выбери кнопку 👇", reply_markup=menu)
+
+
+def register_all_handlers(dp):
+    dp.include_router(router)
