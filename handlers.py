@@ -1,8 +1,6 @@
-import logging
-
 from aiogram import Router, F
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import CommandStart
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 
 from database import Database
 from nutrition import Nutrition
@@ -11,163 +9,122 @@ from workout import Workout
 router = Router()
 
 db = Database()
-nutrition = Nutrition()
-workout = Workout()
+nut = Nutrition()
+work = Workout()
 
 # ---------------- MENU ----------------
-
 menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="🔥 Похудение"), KeyboardButton(text="💪 Масса")],
+        [KeyboardButton(text="💪 Набор массы"), KeyboardButton(text="🔥 Похудение")],
         [KeyboardButton(text="⚖️ Поддержание")],
-        [KeyboardButton(text="🍽 Питание"), KeyboardButton(text="🏋️ Тренировки")],
-        [KeyboardButton(text="📊 Моя форма"), KeyboardButton(text="📈 Прогресс")]
+        [KeyboardButton(text="🏋️ Тренировки"), KeyboardButton(text="🍽 Питание")],
+        [KeyboardButton(text="📊 Калории"), KeyboardButton(text="📈 Прогресс")]
     ],
     resize_keyboard=True
 )
 
 # ---------------- START ----------------
-
 @router.message(CommandStart())
 async def start(message: Message):
-    user_id = message.from_user.id
-    username = message.from_user.username or "User"
-
-    db.add_user(user_id, username)
+    db.add_user(message.from_user.id, message.from_user.username)
 
     await message.answer(
-        f"💪 Привет, {username}!\n\nЯ твой фитнес-тренер.\nВыбери цель 👇",
+        "💪 FITNESS APP V6\n\nВыбери цель:",
         reply_markup=menu
     )
 
 # ---------------- GOALS ----------------
+@router.message(F.text == "💪 Набор массы")
+async def gain(message: Message):
+    db.update(message.from_user.id, goal="gain")
+    await message.answer("💪 цель: НАБОР МАССЫ")
 
 @router.message(F.text == "🔥 Похудение")
 async def loss(message: Message):
-    db.update_user(message.from_user.id, goal="loss")
-    await message.answer("🔥 Цель установлена: ПОХУДЕНИЕ")
-
-@router.message(F.text == "💪 Масса")
-async def gain(message: Message):
-    db.update_user(message.from_user.id, goal="gain")
-    await message.answer("💪 Цель установлена: МАССА")
+    db.update(message.from_user.id, goal="loss")
+    await message.answer("🔥 цель: ПОХУДЕНИЕ")
 
 @router.message(F.text == "⚖️ Поддержание")
 async def maintain(message: Message):
-    db.update_user(message.from_user.id, goal="maintain")
-    await message.answer("⚖️ Цель установлена: ПОДДЕРЖАНИЕ")
-
-# ---------------- CALORIES ----------------
-
-@router.message(F.text == "📊 Моя форма")
-async def form(message: Message):
-    user = db.get_user(message.from_user.id)
-
-    if not user:
-        await message.answer("Сначала /start")
-        return
-
-    data = nutrition.calculate_calories(
-        user["weight"],
-        user["height"],
-        user["age"],
-        user["gender"],
-        user["goal"]
-    )
-
-    await message.answer(
-        f"📊 ТВОЯ ФОРМА\n\n"
-        f"🔥 Калории: {data['calories']}\n"
-        f"🥩 Белки: {data['protein']} г\n"
-        f"🥑 Жиры: {data['fats']} г\n"
-        f"🍞 Углеводы: {data['carbs']} г\n"
-        f"⚡ TDEE: {data['tdee']}"
-    )
+    db.update(message.from_user.id, goal="maintain")
+    await message.answer("⚖️ цель: ПОДДЕРЖАНИЕ")
 
 # ---------------- TRAINING ----------------
-
 @router.message(F.text == "🏋️ Тренировки")
 async def training(message: Message):
     user = db.get_user(message.from_user.id)
-    goal = user.get("goal", "maintain")
-
-    plan = workout.get_workout_plan(goal)
+    plan = work.plan(user["goal"])
 
     text = f"🏋️ {plan['title']}\n\n"
 
-    for day, desc in plan["days"].items():
-        text += f"{day}: {desc}\n"
+    text += "📅 ДНИ:\n"
+    for d in plan["days"]:
+        text += f"• {d}\n"
 
     text += "\n💪 УПРАЖНЕНИЯ:\n"
+    for e in plan["exercises"]:
+        text += f"• {e}\n"
 
-    for group, exs in plan["exercises"].items():
-        text += f"\n{group}:\n"
-        for ex in exs:
-            text += f"• {ex}\n"
+    text += "\n🔥 СОВЕТ:\nНе жертвуй техникой ради веса"
 
     await message.answer(text)
 
 # ---------------- FOOD ----------------
-
 @router.message(F.text == "🍽 Питание")
 async def food(message: Message):
     user = db.get_user(message.from_user.id)
-    goal = user.get("goal", "maintain")
-
-    guide = nutrition.food_guide()
-    data = guide[goal]
+    guide = nut.food(user["goal"])
+    data = guide[user["goal"]]
 
     text = f"{data['title']}\n\n🍽 ЕДА:\n"
 
-    for item in data["eat"]:
-        text += f"• {item}\n"
+    for i in data["eat"]:
+        text += f"• {i}\n"
 
     if "avoid" in data:
-        text += "\n❌ ИЗБЕГАТЬ:\n"
-        for item in data["avoid"]:
-            text += f"• {item}\n"
+        text += "\n❌ нельзя:\n"
+        for i in data["avoid"]:
+            text += f"• {i}\n"
 
-    if "add_tip" in data:
-        text += f"\n💡 {data['add_tip']}"
-
-    if "tip" in data:
-        text += f"\n💡 {data['tip']}"
+    text += f"\n💡 {data.get('tip','')}"
 
     await message.answer(text)
 
-# ---------------- PROGRESS ----------------
+# ---------------- CALORIES ----------------
+@router.message(F.text == "📊 Калории")
+async def calories(message: Message):
+    user = db.get_user(message.from_user.id)
 
+    cal = nut.calories(
+        user["weight"],
+        user["height"],
+        user["age"],
+        user["goal"]
+    )
+
+    await message.answer(
+        f"🔥 калории: {cal['calories']}\n"
+        f"🥩 белок: {cal['protein']}g\n"
+        f"🥑 жиры: {cal['fat']}g\n"
+        f"🍞 углеводы: {cal['carbs']}g"
+    )
+
+# ---------------- PROGRESS ----------------
 @router.message(F.text == "📈 Прогресс")
 async def progress(message: Message):
     user = db.get_user(message.from_user.id)
 
-    history = user.get("weight_history", [])
-
-    if len(history) < 2:
-        await message.answer("📊 Пока нет данных")
-        return
-
-    diff = history[-1] - history[0]
-
     await message.answer(
-        f"📈 ПРОГРЕСС\n\n"
-        f"Старт: {history[0]} кг\n"
-        f"Сейчас: {history[-1]} кг\n"
-        f"Изменение: {diff:+.1f} кг"
+        f"👤 {user['username']}\n"
+        f"🎯 цель: {user['goal']}\n"
+        f"⚖️ вес: {user['weight']} кг\n"
+        f"📏 рост: {user['height']} см"
     )
 
-# ---------------- WEIGHT INPUT ----------------
-
-@router.message(F.text.regexp(r"^\d{2,3}$"))
-async def weight(message: Message):
-    db.add_weight(message.from_user.id, int(message.text))
-    await message.answer("⚖️ Вес сохранён")
-
 # ---------------- FALLBACK ----------------
-
 @router.message()
 async def fallback(message: Message):
-    await message.answer("Выбери кнопку 👇", reply_markup=menu)
+    await message.answer("выбери кнопку 👇", reply_markup=menu)
 
 
 def register_all_handlers(dp):
